@@ -17,11 +17,13 @@ namespace SpriteAnimatorEditor
         {
             m_current = (SpriteAnimatorController)target;
 
-            if (m_current.Data == null)
+            if (m_current.Data == null && !Application.isPlaying)
+            {
                 m_current.Data = AssetDatabase.LoadAssetAtPath<SpriteAnimatorData>("Assets/Plugins/SpriteAnimator/Runtime/default.asset");
+            }
 
             
-            if (m_current.Data == null)
+            if (m_current.Data == null && !Application.isPlaying)
             {
                 m_current.Data = (SpriteAnimatorData)CreateInstance(typeof(SpriteAnimatorData));
                 AssetDatabase.CreateAsset(m_current.Data, "Assets/Plugins/SpriteAnimator/Runtime/default.asset");
@@ -74,6 +76,9 @@ namespace SpriteAnimatorEditor
                     EditorGUILayout.HelpBox("NULL animation", MessageType.Error);
                 }
             }
+
+
+            base.OnInspectorGUI();
         }
 
         private void OnDrawSelector()

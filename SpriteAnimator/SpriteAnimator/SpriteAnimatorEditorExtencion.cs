@@ -297,9 +297,10 @@ internal static class SpriteAnimatorEditorExtencion
         /// <param name="heigth"></param>
         public static void Control(Direction direction, int width, int heigth, GUIStyle style, Action draw)
         {
-                if (style == null)
-                    style = m_defaultGUISkin;
-
+            if (style == null)
+                style = m_defaultGUISkin;
+            try
+            {
                 switch (direction)
                 {
                     case Direction.Vertical:
@@ -316,13 +317,18 @@ internal static class SpriteAnimatorEditorExtencion
                             GUILayout.BeginHorizontal(style,
                                 (heigth == -1) ? GUILayout.ExpandHeight(true) : GUILayout.Height(heigth),
                                 (width == -1) ? GUILayout.ExpandWidth(true) : GUILayout.Width(width));
-                            if (draw != null)  draw.Invoke();                            
+                            if (draw != null) draw.Invoke();
                             GUILayout.EndHorizontal();
                         }
                         break;
                 }
             }
+            catch (Exception ex)
+            {
+                if (SpriteAnimatorWindow.DEV_MODE)  Debug.LogException(ex);
+            }
         }
+    }
     
     public static class Elements
     {
@@ -331,14 +337,7 @@ internal static class SpriteAnimatorEditorExtencion
             GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Header0, GUILayout.ExpandHeight(false), GUILayout.ExpandWidth(true), GUILayout.Height(heigth));
         }
     }
-
-    public static Rect GetNextRect()
-    {
-        if (AvailableForDraw()) return default(Rect);
-        GUILayout.Label("", GUILayout.ExpandWidth(true));
-        return GUILayoutUtility.GetLastRect();
-    }
-
+    
     public static bool AvailableForDraw()
     {
         return false;

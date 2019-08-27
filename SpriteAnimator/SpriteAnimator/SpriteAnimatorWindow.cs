@@ -1,28 +1,354 @@
-﻿using SpriteAnimatorEditor;
-using SpriteAnimatorRuntime;
+﻿using SpriteAnimatorRuntime;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
-using UnityEditor.Callbacks;
 using UnityEngine;
 
 namespace SpriteAnimatorEditor
 {
     public class SpriteAnimatorWindow : EditorWindow
     {
-        private const bool DevelopmentMode = false;
-
-        public static SpriteAnimatorWindow Instance { get; private set; }
+        internal static bool DEV_MODE = false;
+        internal static SpriteAnimatorWindow Instance { get; private set; }
 
         [MenuItem("SpriteAnimator/Manager")]
         private static void Init()
         {
-            Instance = GetWindow<SpriteAnimatorWindow>();            
+            Instance = GetWindow<SpriteAnimatorWindow>();
+            Instance.Initialize();
             Instance.Show();
+        }
+
+        [MenuItem("SpriteAnimator/RepareTree")]
+        private static void RecreateTree()
+        {
+            Init();
+            UpdateTree();
+            Instance.Save();
+        }       
+
+        private SpriteAnimatorData m_data { get; set; }
+        private TreeList m_treeView = new TreeList();
+        private TreeElement m_treeViewElementRename { get; set; }
+        private Rect m_rectElementRename { get; set; }
+        private SpriteAnimatorControl m_control { get; set; }
+        private Vector2 m_treeScroll { get; set; }
+        private int m_lastSelectId { get; set; }
+        private TreeElement m_currentElement { get; set; }
+        private SpriteAnimatorLibrary m_library { get; set; }
+        private string m_tempRenameValue = "";
+        private Rect m_treeRectRootFolder { get; set; }
+        private Rect m_rectTree { get; set; }
+        private bool InRename { get { return m_treeViewElementRename != null; } }
+
+        internal SpriteAnimatorData Data { get { return m_data; } }
+        internal bool IsActiveWindows { get { return focusedWindow == this; } }
+        internal static SpriteAnimatorResources EditorResources { get; private set; }
+        internal SpriteAnimatorContextMenu MenuContext { get; private set; }
+
+
+        private TreeElement m_elementDrag { get; set; }
+        private DragState m_stateTreeDrag { get; set; }
+
+        private enum DragState
+        {
+            Start,
+            Update,
+            End,
+            Clear,
+            Use
+        }
+
+        private enum DragResult
+        {
+            EqualContext,
+            ElementIsParentOfTarget,
+            Success,
+            TargetIsNotFolder,
+        }
+
+        private void Initialize()
+        {
+            Instance = this;
+            Load();
+            InitializeResources();
+            UpdateTree();
+            m_control = new SpriteAnimatorControl(this);
+            m_library = new SpriteAnimatorLibrary(this);
+
+
+            if (EditorPrefs.HasKey("lastId"))
+            {
+                m_lastSelectId = EditorPrefs.GetInt("lastId");
+                TreeElement element = m_treeView.Root.Where(x => x.Value == m_lastSelectId.ToString()).Take(1).SingleOrDefault();
+                if (element != null)
+                    SelectElement(element);
+            }
+
+            if (EditorResources != null)
+                titleContent = new GUIContent("Animator", EditorResources.GetIcon("AppIcon"));
+
+            Undo.undoRedoPerformed -= AffterRedo;
+            Undo.undoRedoPerformed += AffterRedo;
+
+            MenuContext = new SpriteAnimatorContextMenu();
+
+        }
+
+        private void Load()
+        {
+            if (m_data == null)
+                m_data = AssetDatabase.LoadAssetAtPath<SpriteAnimatorData>("Assets/Plugins/SpriteAnimator/Runtime/default.asset");
+
+            if (m_data == null)
+            {
+                m_data = (SpriteAnimatorData)CreateInstance(typeof(SpriteAnimatorData));
+                AssetDatabase.CreateAsset(m_data, "Assets/Plugins/SpriteAnimator/Runtime/default.asset");
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+            }
+        }
+
+        private void InitializeResources()
+        {
+            if (EditorResources == null)
+                EditorResources = AssetDatabase.LoadAssetAtPath<SpriteAnimatorResources>("Assets/Plugins/SpriteAnimator/Editor/style.asset");
+
+            if (EditorResources == null)
+            {
+                EditorResources = (SpriteAnimatorResources)CreateInstance(typeof(SpriteAnimatorResources));
+                EditorUtility.DisplayProgressBar("Setup UI", "Creating resources for UI experience", 100);
+                EditorUtility.ClearProgressBar();
+                if (!Application.isPlaying)
+                {
+                    AssetDatabase.CreateAsset(EditorResources, "Assets/Plugins/SpriteAnimator/Editor/style.asset");
+                    AssetDatabase.SaveAssets();
+                }
+                AssetDatabase.Refresh();
+            }
+
+            EditorResources.Load();
+        }
+
+        private void OnDisable()
+        {
+            m_data.TreeViewData = m_treeView.Serialize();
+            EditorPrefs.SetInt("lastId", m_lastSelectId);
+        }
+
+        private void OnGUI()
+        {
+            if (!IsInitialize)
+            {
+                Initialize();
+                return;
+            }
+            /*
+            if (MenuContext != null)
+
+            if (Event.current.keyCode == KeyCode.F11 &&
+                Event.current.type == EventType.KeyDown &&
+                IsActiveWindows)
+            {
+                EditorResources.Load();
+                return;
+            }
+
+            if (EditorResources == null)
+            {
+                EditorGUILayout.HelpBox("Visual Resources no load!", MessageType.Error);
+                if (GUILayout.Button("Initialize Resources"))
+                    InitializeResources();
+                return;
+            }*/
+
+            MenuContext.GUIEvent();
+            SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, () =>
+            {
+                SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, null, () =>
+                {
+                    SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Horizontal, -1, -1, EditorResources.Background5, () =>
+                    {
+                        SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, 200, -1, EditorResources.Background1, () =>
+                        {
+                            SpriteAnimatorEditorExtencion.Elements.Header("Animations", 35);
+                            DrawTreeView();
+                        });
+                        GUILayout.Space(2);
+                        SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, DrawControl);
+                    });
+                });
+            });
+
+
+            if (m_elementDrag != null)
+            {
+                Rect rect = new Rect(Event.current.mousePosition, new Vector2(200, 20));
+                GUI.Box(rect, m_elementDrag.Name, EditorResources.Background3);
+                Repaint();
+            }
+
+            if (Event.current.type == EventType.MouseUp && IsActiveWindows)
+            {
+                m_stateTreeDrag = DragState.End;
+                DrawTreeFinish();
+            }
+
+
+            OverrideGUI();
+            Repaint();
+        }
+
+        private void OverrideGUI()
+        {
+            Rect labelDate = new Rect(Screen.width - 200, 0, 200, 20);
+            GUI.Label(labelDate, "last save " + m_data.LastSave, EditorResources.LabelDate);
+
+            if(m_currentElement != null)
+            {
+                labelDate.x -= 300;
+                string path = m_currentElement.Name;
+                TreeElement parent = m_treeView.GetParent(m_currentElement);
+                while(parent != null)
+                {
+                    path = parent.Name + "/" + path;
+                    parent = m_treeView.GetParent(parent);
+                }
+
+                GUI.Label(labelDate, path);
+            }
+
+            MenuContext.Draw();
+        }
+
+        internal void SelectElementForID(int id)
+        {
+            TreeElement element = m_treeView.Root.Where(x => x.Value == id.ToString()).Take(1).SingleOrDefault();
+            if (element != null)
+                SelectElement(element);
+        }
+
+        internal void Save()
+        {
+            if (m_treeView.Root == null)
+                return;
+
+            m_data.TreeViewData = m_treeView.Serialize();
+            m_data.Save();
+            EditorUtility.SetDirty(m_data);
+            AssetDatabase.SaveAssets();
+        }
+
+        private void DrawControl()
+        {
+            try
+            {
+                if (m_currentElement == null || m_currentElement.Type == TreeElement.ElementType.Animation)
+                {
+                    m_control.Draw();
+                }
+                else if (m_currentElement.Type == TreeElement.ElementType.Folder)
+                {
+                    m_library.Draw();
+                }
+            }
+            catch (Exception ex)
+            {
+                if (Event.current.type != EventType.Repaint && DEV_MODE)
+                    Debug.LogError(ex);
+
+                return;
+            }
+        }
+
+        private void DrawToolbar()
+        {
+            if (GUILayout.Button("File", EditorStyles.toolbarButton, GUILayout.Width(30)))
+            {
+                GenericMenu menu = new GenericMenu();
+
+                menu.AddItem(new GUIContent("Save"), false, Save);
+                menu.AddSeparator("");
+
+                menu.AddItem(new GUIContent("Create Folder"), false, () =>
+                m_treeView.Root.AddElement(new TreeElement
+                {
+                    Name = "new folder",
+                    Type = TreeElement.ElementType.Folder
+                }));
+
+                menu.AddItem(new GUIContent("Reindex"), false, ReindexData);
+
+                Rect rect = GUILayoutUtility.GetLastRect();
+                rect.y += 16;
+                menu.DropDown(rect);
+            }
+        }
+
+        #region Tools
+
+        private static void UpdateTree()
+        {
+            Instance.m_treeView = new TreeList();
+            TreeElement element = Instance.m_treeView.Root;
+
+            foreach (SpriteAnimation anim in Instance.Data.Animations)
+            {
+                string path = anim.Path.Replace("Root/", "");
+                element.AddElement(new TreeElement
+                {
+                    Name = anim.Name,
+                    Type = TreeElement.ElementType.Animation,
+                    Value = anim.Id.ToString(),
+                    Visible = true,
+                }, path);
+            }
+
+            Instance.Save();
+            Instance.Load();
+
+            if (Instance.m_data.TreeViewData.Length > 0)
+                Instance.m_treeView.Deserialize(Instance.m_data.TreeViewData);
+
+            Instance.m_treeView.DrawElementValidateHandler = (e) => { return true; };
+            Instance.m_treeView.DrawElementHandler = Instance.DrawTreeElement;
+            Instance.m_treeView.DrawTreeFinishHandler = Instance.DrawTreeFinish;
+            Instance.m_treeView.ElementHeight = 35;
+        }
+
+        private bool IsInitialize
+        {
+            get
+            {
+                if (m_data == null) return false;
+                if (m_treeView == null) return false;
+                if (m_control == null) return false;
+                if (m_library == null) return false;
+                if (EditorResources == null) return false;
+                if (MenuContext == null) return false;
+                return true;
+            }
+        }
+
+        private void ReindexData()
+        {
+            int i = 0;
+            for (i = 0; i < m_data.Animations.Length; i++)
+            {
+                int id = m_data.Animations[i].Id;
+                TreeElement element = m_treeView.Root.Where(x => x.Value == id.ToString()).SingleOrDefault();
+                if (element != null)
+                {
+                    element.Value = (i + 1).ToString();
+                    SetInstanceField(typeof(SpriteAnimation), m_data.Animations[i], "m_id", i + 1);
+                }
+            }
+
+            SetInstanceField(typeof(SpriteAnimatorData), m_data, "m_lastId", i);
+
+            Repaint();
         }
 
         [MenuItem("SpriteAnimator/Tools/RefreshStyle")]
@@ -46,142 +372,6 @@ namespace SpriteAnimatorEditor
             resources.Load();
         }
 
-        public SpriteAnimatorData Data { get { return m_data; } }
-        private SpriteAnimatorData m_data { get; set; }
-        private TreeList m_treeView = new TreeList();
-        private TreeElement m_treeViewElementRename { get; set; }
-        private Rect m_rectElementRename { get; set; }
-        private SpriteAnimatorControl m_control { get; set; }
-        private Vector2 m_treeScroll { get; set; }
-        private int m_lastSelectId { get; set; }
-        private TreeElement m_currentElement { get; set; }
-        private SpriteAnimatorLibrary m_library { get; set; }
-        private string m_tempRenameValue = "";
-        private Rect m_treeRectRootFolder { get; set; }  
-        private Rect m_rectTree { get; set; }
-
-        internal static SpriteAnimatorResources EditorResources { get; private set; }
-        private bool InRename { get { return m_treeViewElementRename != null; } }
-
-        private SpriteAnimatorResources m_resources { get; set; }
-
-        public bool IsActiveWindows { get { return focusedWindow == this; } }
-
-        internal SpriteAnimatorContextMenu MenuContext { get; private set; }
-
-        //drag and drop
-        private TreeElement m_elementDrag { get; set; }
-        private DragState m_stateTreeDrag { get; set; }
-
-        private enum DragState
-        {
-            Start,
-            Update,
-            End,
-            Clear,
-            Use
-        }
-
-        private enum DragResult
-        {
-            EqualContext,
-            ElementIsParentOfTarget,
-            Success,
-            TargetIsNotFolder,
-        }
-
-        [DidReloadScripts]
-        static SpriteAnimatorWindow()
-        {
-            //EditorApplication.projectWindowItemOnGUI = ItemOnGUI;
-        }
-
-        static void ItemOnGUI(string guid, Rect rect)
-        {
-            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
-
-            SpriteAnimatorData data = AssetDatabase.LoadAssetAtPath(assetPath, typeof(SpriteAnimatorData)) as SpriteAnimatorData;
-
-            if (data != null)
-            {
-                Texture2D icon = (Texture2D)AssetDatabase.LoadAssetAtPath("Assets/Plugins/SpriteAnimator/Editor/Gizmos/animation.png", typeof(Texture2D));
-                if (rect.width > rect.height)
-                {
-                    EditorGUI.DrawRect(new Rect(rect.x + 2, rect.y, 16, rect.height), new Color(42, 42, 42));
-                    GUI.DrawTexture(new Rect(rect.x + 3, rect.y + 1, 14, 14), icon);
-                }
-                else
-                {
-                    GUI.DrawTexture(new Rect(rect.x + 3, rect.y + 5, rect.width, rect.height - 20), icon);
-                }
-            }
-        }
-
-        private void OnEnable()
-        {
-            Instance = this;
-
-            if(m_data == null)
-                m_data = AssetDatabase.LoadAssetAtPath<SpriteAnimatorData>("Assets/Plugins/SpriteAnimator/Runtime/default.asset");
-
-            if (m_data == null)
-            {
-                m_data = (SpriteAnimatorData)CreateInstance(typeof(SpriteAnimatorData));
-                AssetDatabase.CreateAsset(m_data, "Assets/Plugins/SpriteAnimator/Runtime/default.asset");
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-            }
-
-            InitializeResources();
-
-            if (m_data.TreeViewData.Length > 0)
-                m_treeView.Deserialize(m_data.TreeViewData);
-
-            m_treeView.DrawElementValidateHandler = (e) => { return true; };
-            m_treeView.DrawElementHandler = DrawTreeElement;
-            m_treeView.DrawTreeFinishHandler = DrawTreeFinish;
-            m_treeView.ElementHeight = 35;
-
-            m_control = new SpriteAnimatorControl(this);
-            m_library = new SpriteAnimatorLibrary(this);
-
-
-            if(EditorPrefs.HasKey("lastId"))
-            {
-                m_lastSelectId = EditorPrefs.GetInt("lastId");
-                TreeElement element = m_treeView.Root.Where(x => x.Value == m_lastSelectId.ToString()).Take(1).SingleOrDefault();
-                if (element != null)
-                    SelectElement(element);
-            }
-
-            if(m_resources != null)
-                titleContent = new GUIContent("Animator", m_resources.GetIcon("AppIcon"));
-
-            Undo.undoRedoPerformed -= AffterRedo;
-            Undo.undoRedoPerformed += AffterRedo;
-
-            MenuContext = new SpriteAnimatorContextMenu();
-        }
-
-        private void InitializeResources()
-        {
-            if (m_resources == null)
-                m_resources = AssetDatabase.LoadAssetAtPath<SpriteAnimatorResources>("Assets/Plugins/SpriteAnimator/Editor/style.asset");
-
-            if (m_resources == null)
-            {
-                m_resources = (SpriteAnimatorResources)CreateInstance(typeof(SpriteAnimatorResources));
-                EditorUtility.DisplayProgressBar("Setup UI", "Creating resources for UI experience", 100);
-                EditorUtility.ClearProgressBar();
-                AssetDatabase.CreateAsset(m_resources, "Assets/Plugins/SpriteAnimator/Editor/style.asset");
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-            }
-
-            m_resources.Load();
-            EditorResources = m_resources;
-        }
-
         private void AffterRedo()
         {
             if (m_data.TreeViewData.Length > 0)
@@ -195,114 +385,40 @@ namespace SpriteAnimatorEditor
             SelectElementForID(m_lastSelectId);
         }
 
-        private void OnDisable()
+        private static void SetInstanceField(Type type, object instance, string fieldName, object value)
         {
-            m_data.TreeViewData = m_treeView.Serialize();
-            EditorPrefs.SetInt("lastId", m_lastSelectId);
+            BindingFlags bindFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+                 | BindingFlags.Static;
+            FieldInfo field = type.GetField(fieldName, bindFlags);
+            field.SetValue(instance, value);
         }
 
-        private void OnGUI()
+        internal void Snapshot(string name)
         {
-            if (MenuContext != null) MenuContext.GUIEvent();
-            //(Event.current.type != EventType.Layout || Event.current.type != EventType.Repaint)
-            if (true)
-            {
-                if (Event.current.keyCode == KeyCode.F11 &&
-                    Event.current.type == EventType.KeyDown &&
-                    IsActiveWindows)
-                {
-                    EditorResources.Load();
-                    return;
-                }
-
-                if (EditorResources == null)
-                {
-                    EditorGUILayout.HelpBox("Visual Resources no load!", MessageType.Error);
-                    if (GUILayout.Button("Initialize Resources"))
-                        InitializeResources();
-                    return;
-                }
-
-                SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, () =>
-                {
-                    SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, null, () =>
-                    {
-                        SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Horizontal, -1, -1, EditorResources.Background5, () =>
-                        {
-                            SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, 200, -1, EditorResources.Background1, () =>
-                            {
-                                SpriteAnimatorEditorExtencion.Elements.Header("Animations", 35);
-                                DrawTreeView();
-                            });
-                            GUILayout.Space(2);
-                            SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, DrawControl);
-                        });
-                    });
-                });
-
-
-                if (m_elementDrag != null)
-                {
-                    Rect rect = new Rect(Event.current.mousePosition, new Vector2(200, 20));
-                    GUI.Box(rect, m_elementDrag.Name, EditorResources.Background3);
-                    Repaint();
-                }
-
-                if (Event.current.type == EventType.MouseUp && IsActiveWindows)
-                {
-                    m_stateTreeDrag = DragState.End;
-                    DrawTreeFinish();
-                }
-            }
-
-            OverrideGUI();
-
-
-            Repaint();
-        }
-
-        private void OverrideGUI()
-        {
-            Rect labelDate = new Rect(Screen.width - 200, 0, 200, 20);
-            GUI.Label(labelDate, "last save " + m_data.LastSave, EditorResources.LabelDate);
-
-            MenuContext.Draw();
-        }
-
-        internal void SelectElementForID(int id)
-        {
-            TreeElement element = m_treeView.Root.Where(x => x.Value == id.ToString()).Take(1).SingleOrDefault();
-            if (element != null)
-                SelectElement(element);
-        }
-
-        internal void Save()
-        {
-            if (m_treeView.Root == null)
-                return;
-
-            m_data.TreeViewData = m_treeView.Serialize();
-            m_data.Save();
+            Undo.RecordObject(m_data, name);
             EditorUtility.SetDirty(m_data);
-            //AssetDatabase.SaveAssets();
         }
+
+        #endregion
+
+        #region Tree
 
         private void DrawTreeView()
         {
             m_treeScroll = GUILayout.BeginScrollView(m_treeScroll, false, false);
             GUILayout.Space(2);
-            if(SpriteAnimatorEditorExtencion.Button.Normal("Create Folder"))
+            if (SpriteAnimatorEditorExtencion.Button.Normal("Create Folder"))
             {
                 CreateFolder(false);
             }
 
             GUILayout.Label("Root Directory " + m_treeView.Root.Where(x => x != null).Count(), EditorResources.TreeViewFolder, GUILayout.ExpandWidth(true), GUILayout.Height(20));
             m_treeRectRootFolder = GUILayoutUtility.GetLastRect();
-                
+
 
             GUI.DrawTexture(new Rect(m_treeRectRootFolder.x + 2, m_treeRectRootFolder.y + 2, 16, 16), EditorResources.GetIcon("Star"));
 
-            if(Event.current.type == EventType.MouseDown && Event.current.button == 0 && 
+            if (Event.current.type == EventType.MouseDown && Event.current.button == 0 &&
                 m_treeRectRootFolder.Contains(Event.current.mousePosition) && IsActiveWindows && !MenuContext.IsShow)
             {
                 SelectElement(m_treeView.Root);
@@ -327,7 +443,7 @@ namespace SpriteAnimatorEditor
                         }
                     }
                     Event.current.Use();
-                    
+
 
                     m_treeViewElementRename = null;
                     m_rectElementRename = default(Rect);
@@ -337,10 +453,10 @@ namespace SpriteAnimatorEditor
                 {
                     GUI.SetNextControlName("RenameTextField");
                     Rect rect = m_rectElementRename;
-                    EditorGUI.DrawRect(rect, Color.black);                    
+                    EditorGUI.DrawRect(rect, Color.black);
                     m_tempRenameValue = EditorGUI.TextField(rect, m_tempRenameValue);
                     EditorGUI.FocusTextInControl("RenameTextField");
-                    
+
                 }
             }
 
@@ -377,7 +493,7 @@ namespace SpriteAnimatorEditor
             string originalValue = value;
             int repeat = childrens.Where(x => x != element).Count(x => x.Name.ToLower() == value.ToLower());
             int count = 0;
-            while(repeat != 0)
+            while (repeat != 0)
             {
                 value = originalValue + "(" + (++count) + ")";
                 repeat = childrens.Where(x => x != element).Count(x => x.Name.ToLower() == value.ToLower());
@@ -412,71 +528,6 @@ namespace SpriteAnimatorEditor
             }
 
             Save();
-        }
-
-        private void DrawControl()
-        {
-            try
-            {
-                if (m_currentElement == null || m_currentElement.Type == TreeElement.ElementType.Animation)
-                {
-                    m_control.Draw();
-                }
-                else if (m_currentElement.Type == TreeElement.ElementType.Folder)
-                {
-                    m_library.Draw();
-                }
-            }
-            catch (Exception ex)
-            {
-                if (Event.current.type != EventType.Repaint && DevelopmentMode)
-                    Debug.LogError(ex);
-
-                return;
-            }
-        }
-
-        private void DrawToolbar()
-        {
-            if (GUILayout.Button("File", EditorStyles.toolbarButton, GUILayout.Width(30)))
-            {
-                GenericMenu menu = new GenericMenu();
-
-                menu.AddItem(new GUIContent("Save"), false, Save);
-                menu.AddSeparator("");
-
-                menu.AddItem(new GUIContent("Create Folder"), false, () =>
-                m_treeView.Root.AddElement(new TreeElement
-                {
-                    Name = "new folder",
-                    Type = TreeElement.ElementType.Folder
-                }));
-
-                menu.AddItem(new GUIContent("Reindex"), false, ReindexData);
-
-                Rect rect = GUILayoutUtility.GetLastRect();
-                rect.y += 16;
-                menu.DropDown(rect);
-            }
-        }
-
-        private void ReindexData()
-        {
-            int i = 0;
-            for (i = 0; i < m_data.Animations.Length; i++)
-            {
-                int id = m_data.Animations[i].Id;
-                TreeElement element = m_treeView.Root.Where(x => x.Value == id.ToString()).SingleOrDefault();
-                if (element != null)
-                {
-                    element.Value = (i + 1).ToString();
-                    SetInstanceField(typeof(SpriteAnimation), m_data.Animations[i], "m_id", i + 1);
-                }
-            }
-
-            SetInstanceField(typeof(SpriteAnimatorData), m_data, "m_lastId", i);
-
-            Repaint();
         }
 
         private void DrawTreeElement(Rect rect, TreeElement element)
@@ -544,6 +595,7 @@ namespace SpriteAnimatorEditor
                         RenameElement(element, rectLabel);
                         Event.current.Use();
                     }
+                    /*
                     else if (Event.current.keyCode == KeyCode.Delete && m_rectTree.Contains(Event.current.mousePosition))
                     {
                         if (element.Type == TreeElement.ElementType.Animation)
@@ -557,6 +609,7 @@ namespace SpriteAnimatorEditor
                             Event.current.Use();
                         }
                     }
+                    */
                     break;
             }
         }
@@ -819,20 +872,9 @@ namespace SpriteAnimatorEditor
             ValidateElementName(element, "New Animation");
             SelectElement(element);
             UpdateTreeElementPath();
-        }        
+        }
 
-        private static void SetInstanceField(Type type, object instance, string fieldName, object value)
-        {
-            BindingFlags bindFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-                 | BindingFlags.Static;
-            FieldInfo field = type.GetField(fieldName, bindFlags);
-            field.SetValue(instance, value);
-        }    
 
-        internal void Snapshot(string name)
-        {
-            Undo.RecordObject(m_data, name);
-            EditorUtility.SetDirty(m_data);            
-        }    
+        #endregion
     }
 }

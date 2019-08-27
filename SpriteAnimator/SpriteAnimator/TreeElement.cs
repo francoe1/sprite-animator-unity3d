@@ -49,22 +49,51 @@ namespace SpriteAnimatorEditor
             return element;
         }
 
+        public TreeElement AddElement(TreeElement element, string path)
+        {
+            TreeElement originalElement = element;
+            element = this;
+            string[] paths = path.Split('/');
+
+            for (int i = 0; i < paths.Length - 1; i++)
+            {
+                TreeElement newElement = element.Where(x => x.Name == paths[i], false).Take(1).SingleOrDefault();
+                if (newElement == null)
+                {
+                    newElement = element.AddElement(new TreeElement
+                    {
+                        Name = paths[i],
+                        Type = TreeElement.ElementType.Folder,
+                        Visible = true,
+                    });
+                }
+                element = newElement;
+            }
+            return element.AddElement(originalElement);
+        }
+
         //LINQ function
 
-        public IEnumerable<TreeElement> Where(Func<TreeElement, bool> r)
+        public IEnumerable<TreeElement> Where(Func<TreeElement, bool> r, bool deph = true)
         {
             List<TreeElement> result = new List<TreeElement>();
             result.AddRange(Elements.Where(r));
-            for (int i = 0; i < Elements.Count; i++)
-                result.AddRange(Elements[i].Where(r));
+            if (deph)
+            {
+                for (int i = 0; i < Elements.Count; i++)
+                    result.AddRange(Elements[i].Where(r));
+            }
             return result;
         }
 
-        public void Remove(Predicate<TreeElement> r)
+        public void Remove(Predicate<TreeElement> r, bool deph = true)
         {
             Elements.RemoveAll(r);
-            for (int i = 0; i < Elements.Count; i++)
-                Elements[i].Remove(r);
+            if (deph)
+            {
+                for (int i = 0; i < Elements.Count; i++)
+                    Elements[i].Remove(r);
+            }
         }
 
         public virtual void Serialize(BinaryWriter writer)

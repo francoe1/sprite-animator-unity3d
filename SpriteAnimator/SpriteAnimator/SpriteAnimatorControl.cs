@@ -25,6 +25,8 @@ namespace SpriteAnimatorEditor
         private int m_currentDragIndexFrame { get; set; }
         private int m_currentTooltipIndexFrame { get; set; }
 
+        private Stack<Sprite> m_cacheSpriteToInsert { get; set; } = new Stack<Sprite>();
+
         public KeyCode NextFrame = KeyCode.RightArrow;
         public KeyCode BackFrame = KeyCode.LeftArrow;
 
@@ -38,6 +40,23 @@ namespace SpriteAnimatorEditor
 
         private void Update()
         {
+            if (m_cacheSpriteToInsert.Count > 0)
+            { 
+                Root.ShowNotification(new GUIContent("Add sprite"));
+            }
+
+            while(m_cacheSpriteToInsert.Count > 0)
+            {
+                Sprite sprite = m_cacheSpriteToInsert.Pop();
+
+                if (sprite)
+                {
+                    int index = m_animation.AddFrame(sprite);
+                    m_player.GoToFrame(index);
+                }
+            }
+
+
             if (m_player != null)
             {
                 m_player.Update();
@@ -130,7 +149,7 @@ namespace SpriteAnimatorEditor
             {
                 GUI.enabled = false;
                 SpriteAnimatorEditorExtencion.Field.Draw("ID", m_animation.Id);
-                GUI.enabled = true;
+                GUI.enabled = true;                
 
                 m_animation.TimePerFrame = SpriteAnimatorEditorExtencion.Field.Draw("Time Per Frame (ms)", m_animation.TimePerFrame);
                 EditorGUI.BeginChangeCheck();
@@ -152,6 +171,7 @@ namespace SpriteAnimatorEditor
                 if (m_animation.FrameCount > 0 && m_animation.FrameCount > m_player.FrameIndex)
                 {
                     m_animation.Frames[m_player.FrameIndex].Time = SpriteAnimatorEditorExtencion.Field.Slider("Time", m_animation.Frames[m_player.FrameIndex].Time, 1f, 10);
+                    m_animation.Frames[m_player.FrameIndex].Sprite = (Sprite)SpriteAnimatorEditorExtencion.Field.ObjectField("Sprite", m_animation.Frames[m_player.FrameIndex].Sprite, typeof(Sprite));
                 }
 
                 Root.Data.ShowPivots = SpriteAnimatorEditorExtencion.Field.Draw("Show Pivots", Root.Data.ShowPivots);
@@ -327,45 +347,32 @@ namespace SpriteAnimatorEditor
 
             DropAreaGUI(dragAreaReact, (dragged_object) =>
             {
-                if (dragged_object.Count == 0)
-                    return;
-
-                if (dragged_object[0] is Texture2D)
+                if (dragged_object.Count > 0)
                 {
-                    dragged_object.ForEach(j =>
+                    if (dragged_object[0] is Texture2D)
                     {
-                        UnityEngine.Object[] sprites = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(j));
-
-                        if (sprites != null && sprites.Length > 0)
+                        dragged_object.ForEach(j =>
                         {
-                            Root.Snapshot("Add Frame");
-                            sprites.ToList().ForEach(x =>
+                            UnityEngine.Object[] sprites = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(j));
+
+                            if (sprites != null && sprites.Length > 0)
                             {
-                                Sprite sprite = x as Sprite;
-                                if (sprite)
+                                sprites.ToList().ForEach(x =>
                                 {
-                                    int index = m_animation.AddFrame(sprite);
-                                    m_player.GoToFrame(index);
-                                    Root.ShowNotification(new GUIContent("Add sprite " + sprite.name));
-                                }
-                            });
-                        }
-                    });
-                }
-                else if (dragged_object[0] is Sprite)
-                {
-                    dragged_object.ForEach(x =>
+                                    Sprite sprite = x as Sprite;
+                                    m_cacheSpriteToInsert.Push(sprite);
+                                });
+                            }
+                        });
+                    }
+                    else if (dragged_object[0] is Sprite)
                     {
-                        Root.Snapshot("Add Frame");
-                        Sprite sprite = x as Sprite;
-                        if (sprite)
+                        dragged_object.ForEach(x =>
                         {
-                            int index = m_animation.AddFrame(sprite);
-                            m_player.GoToFrame(index);
-                            Root.ShowNotification(new GUIContent("Add sprite " + sprite.name));
-                        }
-                        
-                    });
+                            Sprite sprite = x as Sprite;
+                            m_cacheSpriteToInsert.Push(sprite);
+                        });
+                    }
                 }
 
             }, typeof(Texture2D), typeof(Sprite));
@@ -380,13 +387,13 @@ namespace SpriteAnimatorEditor
             if (m_currentTooltipIndexFrame != -1 && m_animation.ContainFrameIndex(m_currentTooltipIndexFrame))
             {
                 GUI.Label(new Rect(Event.current.mousePosition.x + 10, Event.current.mousePosition.y + 20, 130, 20),
-                    m_animation.Frames[m_currentTooltipIndexFrame].name, 
+                    m_animation.Frames[m_currentTooltipIndexFrame].Name, 
                     SpriteAnimatorWindow.EditorResources.Tooltip);
                 if(Event.current.type == EventType.Repaint)
                     m_currentTooltipIndexFrame = -1;
             }
         }
-
+        
         private void DrawElementInTimeLine(SpriteAnimation.FrameInfo frame, Rect rect, bool active, int index)
         {
             EditorGUI.DrawRect(rect, active ? SpriteAnimatorWindow.EditorResources.Colors[2] : SpriteAnimatorWindow.EditorResources.Colors[1]);
@@ -395,6 +402,8 @@ namespace SpriteAnimatorEditor
             GUI.Label(new Rect(rect.x, rect.y, rect.width, 20), index + "-"+
                 frame.Time.ToString("F2") +
                 "["+ ((frame.Time * m_animation.TimePerFrame) / 60).ToString("F2") +"]", SpriteAnimatorWindow.EditorResources.LabelTimeLine);
+
+            
 
             
             if(m_currentDragIndexFrame != -1)
@@ -450,11 +459,13 @@ namespace SpriteAnimatorEditor
                 }                
             }
 
+            /*
             if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Delete)
             {
+                Root.ShowNotification(new GUIContent($"Remove frame {index}"));
                 m_animation.RemoveFrame(index);
                 Event.current.Use();
-            }
+            }*/
 
         }
 
@@ -538,8 +549,7 @@ namespace SpriteAnimatorEditor
                 int factorScaleX = Mathf.FloorToInt(rect.width / sprite.rect.width);
                 int factorScaleY = Mathf.FloorToInt(rect.height / sprite.rect.height);
                 float factorTarget = Mathf.Min(factorScaleX, factorScaleY);
-
-                //bool factorIsVertical = (rect.width > rect.height);
+                
                 scale = (Root.Data.AutoScale) ? factorTarget: Root.Data.ScaleSprite;
 
                 scale = Mathf.Clamp(scale, 0.01f, float.PositiveInfinity);
@@ -601,8 +611,15 @@ namespace SpriteAnimatorEditor
 
         private void DrawSpriteTimeLine(Sprite sprite, Rect rect)
         {
-            Rect positionRect = sprite.rect;
+            if (sprite == null)
+            {
+                rect.y += 40;
+                rect.height = 30;
+                GUI.Label(rect, "Empty", SpriteAnimatorWindow.EditorResources.Background3);
+                return;
+            }
 
+            Rect positionRect = sprite.rect;
             Texture2D texture = sprite.texture;
             positionRect.xMin /= texture.width;
             positionRect.xMax /= texture.width;
@@ -679,8 +696,7 @@ namespace SpriteAnimatorEditor
             {
                 case EventType.DragUpdated:
                 case EventType.DragPerform:
-                    if (!drop_area.Contains(Event.current.mousePosition))
-                        return;
+                    if (!drop_area.Contains(Event.current.mousePosition)) break;
 
                     DragAndDrop.visualMode = DragAndDropVisualMode.Move;
 

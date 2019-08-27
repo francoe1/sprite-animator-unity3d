@@ -360,6 +360,7 @@ namespace SpriteAnimatorRuntime
 
         public bool HasPivot(string name)
         {
+            if (Animation == null) return false;
             return Animation.HasPivot(name);
         }
     }

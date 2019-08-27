@@ -133,10 +133,12 @@ namespace SpriteAnimatorEditor
         {
             if (Application.isPlaying) return;
 
-            
-
-            Colors = new Color[]
+            try
             {
+
+
+                Colors = new Color[]
+                {
                 CreateColor(68, 68, 68), //0
                 CreateColor(51, 51, 51), //1
                 CreateColor(77, 124, 255), //2
@@ -146,10 +148,10 @@ namespace SpriteAnimatorEditor
                 CreateColor(120, 120, 120), //6
                 CreateColor(178, 151, 9), //7
                 CreateColor(178, 157, 9), //8
-            };
-            
-            Icon = new Texture2D[]
-            {
+                };
+
+                Icon = new Texture2D[]
+                {
                 (LoadTexture(m_images[0], "PlayOff")),
                 (LoadTexture(m_images[0], "PlayOn", Colors[4])),
                 (LoadTexture(m_images[1], "PlayRigthOff")),
@@ -168,10 +170,10 @@ namespace SpriteAnimatorEditor
                 (LoadTexture(m_images[12], "Star")),
                 (LoadTexture(m_images[13], "AppIcon")),
                 (LoadTexture(m_images[14], "ArrowLeft", Colors[4])),
-            };
-            
-            TexturesDarken = new Texture2D[]
-            {
+                };
+
+                TexturesDarken = new Texture2D[]
+                {
                 CreateTexture(Colors[0].Darken(25), "Text1-Dark"),
                 CreateTexture(Colors[1].Darken(25), "Text2-Dark"),
                 CreateTexture(Colors[2].Darken(25), "Text3-Dark"),
@@ -181,10 +183,10 @@ namespace SpriteAnimatorEditor
                 CreateTexture(Colors[6].Darken(25), "Text7-Dark"),
                 CreateTexture(Colors[7].Darken(25), "Text8-Dark"),
                 CreateTexture(Colors[8].Darken(25), "Text9-Dark"),
-            };
+                };
 
-            TexturesLigthen = new Texture2D[]
-            {
+                TexturesLigthen = new Texture2D[]
+                {
                 CreateTexture(Colors[0].Ligthen(35), "Text1-Ligthen"),
                 CreateTexture(Colors[1].Ligthen(35), "Text2-Ligthen"),
                 CreateTexture(Colors[2].Ligthen(35), "Text3-Ligthen"),
@@ -194,10 +196,10 @@ namespace SpriteAnimatorEditor
                 CreateTexture(Colors[6].Ligthen(35), "Text7-Ligthen"),
                 CreateTexture(Colors[7].Ligthen(35), "Text8-Ligthen"),
                 CreateTexture(Colors[8].Ligthen(35), "Text9-Ligthen"),
-            };
+                };
 
-            Textures = new Texture2D[]
-            {
+                Textures = new Texture2D[]
+                {
                 CreateTexture(Colors[0], "Text1"),
                 CreateTexture(Colors[1], "Text2"),
                 CreateTexture(Colors[2], "Text3"),
@@ -207,13 +209,19 @@ namespace SpriteAnimatorEditor
                 CreateTexture(Colors[6], "Text7"),
                 CreateTexture(Colors[7], "Text8"),
                 CreateTexture(Colors[8], "Text9"),
-            };
+                };
 
-            LoadStyles();
-            EditorUtility.SetDirty(this);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            EditorUtility.ClearProgressBar();
+                LoadStyles();
+                EditorUtility.SetDirty(this);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                EditorUtility.ClearProgressBar();
+
+            }
+            catch
+            {
+                Debug.LogWarning("Error load Resources");
+            }
 
         }
 

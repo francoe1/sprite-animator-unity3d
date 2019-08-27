@@ -213,9 +213,9 @@ namespace SpriteAnimatorRuntime
             public List<Vector2> Pivots = new List<Vector2>();
 
             public float Time { get { return m_time; } set { m_time = Mathf.Clamp(value, 1f, 10); } }
-            public string name { get { return Sprite == null? "null": Sprite.name; } set { Sprite.name = value; } }
-            public float Width { get { return Sprite.rect.width; } }
-            public float Height { get { return Sprite.rect.height; } }
+            public string Name { get { return Sprite == null? "null": Sprite.name; } set { Sprite.name = value; } }
+            public float Width { get { return Sprite == null ? 0 : Sprite.rect.width; } }
+            public float Height { get { return Sprite == null ? 0 : Sprite.rect.height; } }
                        
 
             [SerializeField]
