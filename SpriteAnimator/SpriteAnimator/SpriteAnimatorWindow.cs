@@ -3,12 +3,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
 namespace SpriteAnimatorEditor
 {
-    public class SpriteAnimatorWindow : EditorWindow
+    public class SpriteAnimatorWindow : EditorWindow, ISerializationCallbackReceiver
     {
         internal static bool DEV_MODE = false;
         internal static SpriteAnimatorWindow Instance { get; private set; }
@@ -27,7 +28,23 @@ namespace SpriteAnimatorEditor
             Init();
             UpdateTree();
             Instance.Save();
-        }       
+        }
+
+        [MenuItem("SpriteAnimator/Testing")]
+        private static void TestTree()
+        {
+            Init();
+            SpriteAnimation data = Instance.Data.Animations[0];
+            string name = DateTime.Now.TimeOfDay.TotalSeconds.ToString();
+            for(int i = 0; i < 500; i++)
+            {
+                SpriteAnimation anim = Instance.Data.CreateAnimation();
+                anim.Name = name;
+                anim.SetPath("Test/" + name + i);
+                anim.SetFrames(data.Frames);
+                anim.Direction = data.Direction;
+            }
+        }
 
         private SpriteAnimatorData m_data { get; set; }
         private TreeList m_treeView = new TreeList();
@@ -45,12 +62,28 @@ namespace SpriteAnimatorEditor
 
         internal SpriteAnimatorData Data { get { return m_data; } }
         internal bool IsActiveWindows { get { return focusedWindow == this; } }
-        internal static SpriteAnimatorResources EditorResources { get; private set; }
-        internal SpriteAnimatorContextMenu MenuContext { get; private set; }
+        internal static GUIResources EditorResources { get; private set; }
+        internal ContextMenu MenuContext { get; private set; }
+        internal static bool EditorIsPlaying { get; private set; }
+        internal static bool EditorIsChangeMode { get; private set; }
 
 
+        private static int m_lastMilliseconds { set; get; }
         private TreeElement m_elementDrag { get; set; }
         private DragState m_stateTreeDrag { get; set; }
+
+        private void OnEnable()
+        {
+            EditorIsPlaying = !Application.isPlaying;
+            EditorApplication.playModeStateChanged += (PlayModeStateChange state) =>    
+            {
+                switch (state)
+                {
+                    case PlayModeStateChange.ExitingEditMode: EditorIsPlaying = true; EditorIsChangeMode = true; break;
+                    case PlayModeStateChange.EnteredEditMode: EditorIsPlaying = false; EditorIsChangeMode = false; break;
+                }
+            };
+        }
 
         private enum DragState
         {
@@ -68,7 +101,7 @@ namespace SpriteAnimatorEditor
             Success,
             TargetIsNotFolder,
         }
-
+        
         private void Initialize()
         {
             Instance = this;
@@ -90,11 +123,9 @@ namespace SpriteAnimatorEditor
             if (EditorResources != null)
                 titleContent = new GUIContent("Animator", EditorResources.GetIcon("AppIcon"));
 
-            Undo.undoRedoPerformed -= AffterRedo;
-            Undo.undoRedoPerformed += AffterRedo;
-
-            MenuContext = new SpriteAnimatorContextMenu();
-
+            Undo.undoRedoPerformed = AffterRedo;
+            
+            MenuContext = new ContextMenu();
         }
 
         private void Load()
@@ -106,19 +137,22 @@ namespace SpriteAnimatorEditor
             {
                 m_data = (SpriteAnimatorData)CreateInstance(typeof(SpriteAnimatorData));
                 AssetDatabase.CreateAsset(m_data, "Assets/Plugins/SpriteAnimator/Runtime/default.asset");
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
+                if (!EditorIsPlaying)
+                {
+                    AssetDatabase.SaveAssets();
+                    AssetDatabase.Refresh();
+                }
             }
         }
 
         private void InitializeResources()
         {
             if (EditorResources == null)
-                EditorResources = AssetDatabase.LoadAssetAtPath<SpriteAnimatorResources>("Assets/Plugins/SpriteAnimator/Editor/style.asset");
+                EditorResources = AssetDatabase.LoadAssetAtPath<GUIResources>("Assets/Plugins/SpriteAnimator/Editor/style.asset");
 
             if (EditorResources == null)
             {
-                EditorResources = (SpriteAnimatorResources)CreateInstance(typeof(SpriteAnimatorResources));
+                EditorResources = (GUIResources)CreateInstance(typeof(GUIResources));
                 EditorUtility.DisplayProgressBar("Setup UI", "Creating resources for UI experience", 100);
                 EditorUtility.ClearProgressBar();
                 if (!Application.isPlaying)
@@ -134,50 +168,44 @@ namespace SpriteAnimatorEditor
 
         private void OnDisable()
         {
-            m_data.TreeViewData = m_treeView.Serialize();
             EditorPrefs.SetInt("lastId", m_lastSelectId);
+            if (!EditorIsPlaying)
+            {
+                m_data.TreeViewData = m_treeView.Serialize();
+                AssetDatabase.SaveAssets();
+            }
         }
 
         private void OnGUI()
         {
+            
+            if (EditorIsChangeMode)
+            {
+                EditorGUILayout.HelpBox("Loading", MessageType.Info);
+                return;
+            }
+
             if (!IsInitialize)
             {
                 Initialize();
                 return;
             }
-            /*
-            if (MenuContext != null)
-
-            if (Event.current.keyCode == KeyCode.F11 &&
-                Event.current.type == EventType.KeyDown &&
-                IsActiveWindows)
-            {
-                EditorResources.Load();
-                return;
-            }
-
-            if (EditorResources == null)
-            {
-                EditorGUILayout.HelpBox("Visual Resources no load!", MessageType.Error);
-                if (GUILayout.Button("Initialize Resources"))
-                    InitializeResources();
-                return;
-            }*/
-
+        
             MenuContext.GUIEvent();
-            SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, () =>
+            
+            GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, () =>
             {
-                SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, null, () =>
+                GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, null, () =>
                 {
-                    SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Horizontal, -1, -1, EditorResources.Background5, () =>
+                    GUIPro.Layout.Control(GUIPro.Layout.Direction.Horizontal, -1, -1, EditorResources.Background5, () =>
                     {
-                        SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, 200, -1, EditorResources.Background1, () =>
+                        GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, 200, -1, EditorResources.Background1, () =>
                         {
-                            SpriteAnimatorEditorExtencion.Elements.Header("Animations", 35);
+                            GUIPro.Elements.Header("Animations", 35);
                             DrawTreeView();
                         });
                         GUILayout.Space(2);
-                        SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, DrawControl);
+                        GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, DrawControl);
                     });
                 });
             });
@@ -189,7 +217,7 @@ namespace SpriteAnimatorEditor
                 GUI.Box(rect, m_elementDrag.Name, EditorResources.Background3);
                 Repaint();
             }
-
+            
             if (Event.current.type == EventType.MouseUp && IsActiveWindows)
             {
                 m_stateTreeDrag = DragState.End;
@@ -205,22 +233,12 @@ namespace SpriteAnimatorEditor
         {
             Rect labelDate = new Rect(Screen.width - 200, 0, 200, 20);
             GUI.Label(labelDate, "last save " + m_data.LastSave, EditorResources.LabelDate);
-
-            if(m_currentElement != null)
-            {
-                labelDate.x -= 300;
-                string path = m_currentElement.Name;
-                TreeElement parent = m_treeView.GetParent(m_currentElement);
-                while(parent != null)
-                {
-                    path = parent.Name + "/" + path;
-                    parent = m_treeView.GetParent(parent);
-                }
-
-                GUI.Label(labelDate, path);
-            }
+            labelDate.x -= 300;
+            GUI.Label(labelDate, "FPS:" + Mathf.CeilToInt((m_lastMilliseconds / (float)DateTime.Now.TimeOfDay.Milliseconds) * 60));
 
             MenuContext.Draw();
+
+            m_lastMilliseconds = DateTime.Now.TimeOfDay.Milliseconds;
         }
 
         internal void SelectElementForID(int id)
@@ -232,13 +250,14 @@ namespace SpriteAnimatorEditor
 
         internal void Save()
         {
+            if (EditorIsPlaying) return;
+
             if (m_treeView.Root == null)
                 return;
 
             m_data.TreeViewData = m_treeView.Serialize();
             m_data.Save();
             EditorUtility.SetDirty(m_data);
-            AssetDatabase.SaveAssets();
         }
 
         private void DrawControl()
@@ -293,6 +312,8 @@ namespace SpriteAnimatorEditor
         {
             Instance.m_treeView = new TreeList();
             TreeElement element = Instance.m_treeView.Root;
+
+            Debug.Log("Animations " + Instance.Data.Animations.Length);
 
             foreach (SpriteAnimation anim in Instance.Data.Animations)
             {
@@ -354,14 +375,14 @@ namespace SpriteAnimatorEditor
         [MenuItem("SpriteAnimator/Tools/RefreshStyle")]
         private static void RefreshStyle()
         {
-            SpriteAnimatorResources resources = null;
+            GUIResources resources = null;
 
             if (resources == null)
-                resources = AssetDatabase.LoadAssetAtPath<SpriteAnimatorResources>("Assets/Plugins/SpriteAnimator/Editor/style.asset");
+                resources = AssetDatabase.LoadAssetAtPath<GUIResources>("Assets/Plugins/SpriteAnimator/Editor/style.asset");
 
             if (resources == null)
             {
-                resources = (SpriteAnimatorResources)CreateInstance(typeof(SpriteAnimatorResources));
+                resources = (GUIResources)CreateInstance(typeof(GUIResources));
                 EditorUtility.DisplayProgressBar("Setup UI", "Creating resources for UI experience", 100);
                 EditorUtility.ClearProgressBar();
                 AssetDatabase.CreateAsset(resources, "Assets/Plugins/SpriteAnimator/Editor/style.asset");
@@ -374,14 +395,7 @@ namespace SpriteAnimatorEditor
 
         private void AffterRedo()
         {
-            if (m_data.TreeViewData.Length > 0)
-                m_treeView.Deserialize(m_data.TreeViewData);
-
-            m_treeView.DrawElementValidateHandler = (e) => { return true; };
-            m_treeView.DrawElementHandler = DrawTreeElement;
-            m_treeView.DrawTreeFinishHandler = DrawTreeFinish;
-            m_treeView.ElementHeight = 18;
-
+            UpdateTree();
             SelectElementForID(m_lastSelectId);
         }
 
@@ -395,8 +409,8 @@ namespace SpriteAnimatorEditor
 
         internal void Snapshot(string name)
         {
-            Undo.RecordObject(m_data, name);
-            EditorUtility.SetDirty(m_data);
+            name = "SpriteAnimator-" + name.Replace(" ", "");
+            Undo.RegisterCompleteObjectUndo(m_data, name);
         }
 
         #endregion
@@ -407,7 +421,7 @@ namespace SpriteAnimatorEditor
         {
             m_treeScroll = GUILayout.BeginScrollView(m_treeScroll, false, false);
             GUILayout.Space(2);
-            if (SpriteAnimatorEditorExtencion.Button.Normal("Create Folder"))
+            if (GUIPro.Button.Normal("Create Folder"))
             {
                 CreateFolder(false);
             }
@@ -482,6 +496,8 @@ namespace SpriteAnimatorEditor
             TreeElement parent = m_treeView.GetParent(element);
             if (parent == null)
                 parent = m_treeView.Root;
+
+            value = Regex.Replace(value, "[^a-zA-Z0-9\x20]", string.Empty);
 
             if (parent == m_treeView.Root && value.ToLower().Equals("root"))
             {
@@ -872,6 +888,16 @@ namespace SpriteAnimatorEditor
             ValidateElementName(element, "New Animation");
             SelectElement(element);
             UpdateTreeElementPath();
+        }
+
+        public void OnBeforeSerialize()
+        {
+            Debug.Log("Serialize ");
+        }
+
+        public void OnAfterDeserialize()
+        {
+            Debug.Log("Deserialize ");
         }
 
 

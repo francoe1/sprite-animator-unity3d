@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpriteAnimatorEditor
 {
-    internal class SpriteAnimatorContextMenu
+    internal class ContextMenu
     {
         public bool IsShow { get; set; }
 
@@ -13,7 +13,7 @@ namespace SpriteAnimatorEditor
         private int m_index = -1;
         private Vector2 m_position = Vector2.zero;
 
-        public SpriteAnimatorContextMenu()
+        public ContextMenu()
         {
             m_items = new List<Item>();
         }

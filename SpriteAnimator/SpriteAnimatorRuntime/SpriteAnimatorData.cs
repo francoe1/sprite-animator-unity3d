@@ -19,8 +19,6 @@ namespace SpriteAnimatorRuntime
         [HideInInspector]
         public Color PreviewBackgroundColor = Color.blue;
         [HideInInspector]
-        public bool AutoScale = false;
-        [HideInInspector]
         public bool DrawSpriteZone = false;
 
         
@@ -73,7 +71,9 @@ namespace SpriteAnimatorRuntime
 
         public SpriteAnimation GetAnimation(string path)
         {
-            return m_animations.Where(x => x.Path.ToLower() == path.ToLower()).SingleOrDefault();
+            for(int i = 0; i < m_animations.Count; i++)
+                if (m_animations[i].Path.ToLower().Equals(path.ToLower())) return m_animations[i];
+            return null;
         }
 
         public void Clear()

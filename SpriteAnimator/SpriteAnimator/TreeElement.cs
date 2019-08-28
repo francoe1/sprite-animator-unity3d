@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using UnityEngine;
 
 namespace SpriteAnimatorEditor
 {
@@ -98,17 +97,24 @@ namespace SpriteAnimatorEditor
 
         public virtual void Serialize(BinaryWriter writer)
         {
-            writer.Write(Name);
-            writer.Write(Value);
-            writer.Write(Visible);
-            writer.Write((int)Type);
-            writer.Write(Protected);
-            writer.Write(Elements == null ? 0 : Elements.Count);
-
-            if (Elements != null)
+            try
             {
-                for (int i = 0; i < Elements.Count; i++)
-                    Elements[i].Serialize(writer);
+                writer.Write(Name);
+                writer.Write(Value);
+                writer.Write(Visible);
+                writer.Write((int)Type);
+                writer.Write(Protected);
+                writer.Write(Elements == null ? 0 : Elements.Count);
+
+                if (Elements != null)
+                {
+                    for (int i = 0; i < Elements.Count; i++)
+                        Elements[i].Serialize(writer);
+                }
+            }
+            catch
+            {
+                throw new Exception("Error deserialize TreeElement");
             }
         }
 
@@ -119,21 +125,28 @@ namespace SpriteAnimatorEditor
 
         public virtual void Deserialize(BinaryReader reader)
         {
-            Name = reader.ReadString();
-            Value = reader.ReadString();
-            Visible = reader.ReadBoolean();
-            Type = (ElementType)reader.ReadInt32();
-            Protected = reader.ReadBoolean();
-
-            int count = reader.ReadInt32();
-            if (count > 0)
+            try
             {
-                Elements = new List<TreeElement>();
-                for (int i = 0; i < count; i++)
+                Name = reader.ReadString();
+                Value = reader.ReadString();
+                Visible = reader.ReadBoolean();
+                Type = (ElementType)reader.ReadInt32();
+                Protected = reader.ReadBoolean();
+
+                int count = reader.ReadInt32();
+                if (count > 0)
                 {
-                    Elements.Add(new TreeElement());
-                    Elements[i].Deserialize(reader);
+                    Elements = new List<TreeElement>();
+                    for (int i = 0; i < count; i++)
+                    {
+                        Elements.Add(new TreeElement());
+                        Elements[i].Deserialize(reader);
+                    }
                 }
+            }
+            catch
+            {
+                throw new Exception("Error serialize TreeElement");
             }
         }
 

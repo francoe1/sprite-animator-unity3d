@@ -64,7 +64,7 @@ namespace SpriteAnimatorEditor
 
         public void Draw()
         {
-            SpriteAnimatorEditorExtencion.Elements.Header("Sprite Animator Library", 35);
+            GUIPro.Elements.Header("Sprite Animator Library", 35);
             if (m_preview.Length == 0)
             {
                 return;

@@ -149,40 +149,29 @@ namespace SpriteAnimatorRuntime
             }
 
             Vector2 point = m_frames[indexFrame].Pivots[indexPivot];
-            point.y = -point.y;
-            point.x *= 1f / Frames[indexFrame].Width;
-            point.y *= 1f / Frames[indexFrame].Height;
-            point.x -= .5f;
-            point.y += .5f;
+            point -= Vector2.one * 0.5f;
+            point.x *= Frames[indexFrame].Width;
+            point.y *= -Frames[indexFrame].Height;
             return point;
         }
 
         public Vector2 GetPivotPointInFrame(int indexFrame, string name)
         {
-            Pivot pivot = m_pivots.Where(x => x.Name == name).Take(1).SingleOrDefault();
-            if(pivot == null)
+            for(int i = 0; i < m_pivots.Count; i++)
             {
-                throw new Exception("Pivot " +  name + " no exist in " + Name);
-            }
+                Pivot pivot = m_pivots[i];
+                if (pivot == null) continue;
+                if (pivot.Name.Equals(name)) return GetPivotPointInFrame(indexFrame, i);
 
-            if(m_frames.Count <= indexFrame ||indexFrame < 0)
-            {
-                throw new Exception("IndexFrame Error in GetPivotPointInFrame");
             }
-
-            Vector2 point = m_frames[indexFrame].Pivots[pivot.Index];
-            point.y = -point.y;
-            point.x *= 1f / Frames[indexFrame].Width;
-            point.y *= 1f / Frames[indexFrame].Height;
-            point.x -= .5f;
-            point.y += .5f;
-            return point;
+            throw new Exception("Pivot " + name + " no exist in " + Name);
         }
 
         public void SetPath(string path)
         {
             if (Application.isPlaying)
                 throw new Exception("AddFrame is not available in runtime");
+            if (!path.StartsWith("Root/")) path = "Root/" + path;
             m_path = path;
         }
 
@@ -214,8 +203,8 @@ namespace SpriteAnimatorRuntime
 
             public float Time { get { return m_time; } set { m_time = Mathf.Clamp(value, 1f, 10); } }
             public string Name { get { return Sprite == null? "null": Sprite.name; } set { Sprite.name = value; } }
-            public float Width { get { return Sprite == null ? 0 : Sprite.rect.width; } }
-            public float Height { get { return Sprite == null ? 0 : Sprite.rect.height; } }
+            public float Width { get { return Sprite == null ? 0 : Sprite.rect.width / Sprite.pixelsPerUnit; } }
+            public float Height { get { return Sprite == null ? 0 : Sprite.rect.height / Sprite.pixelsPerUnit; } }
                        
 
             [SerializeField]

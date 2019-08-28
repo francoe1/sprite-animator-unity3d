@@ -9,18 +9,14 @@ namespace SpriteAnimatorEditor
 {
     internal class SpriteAnimatorControl
     {
-        private SpriteAnimatorWindow Root { get; set; }
+        private static SpriteAnimatorWindow Root { get; set; }
+        private static Color GridColor = GUIResources.CreateColor(20, 20, 20, .5f);
         private SpriteAnimation m_animation { get; set; }
         private SpriteAnimatorPlayer m_player { get; set; }
         private Vector2 m_timelineScroll { get; set; }
-        private Rect m_spriteRect { get; set; }
 
         private Vector2 m_settingScroll { get; set; }
-        private Vector2 m_pivotZoneOffset { get; set; }
-        private Matrix4x4 m_guimatrixDefault { get; set; }
-
-        private Vector2 nonClipOffset;
-        private float scale { get; set; }
+        
         private int m_currentDragIndexPivot { get; set; }
         private int m_currentDragIndexFrame { get; set; }
         private int m_currentTooltipIndexFrame { get; set; }
@@ -40,10 +36,7 @@ namespace SpriteAnimatorEditor
 
         private void Update()
         {
-            if (m_cacheSpriteToInsert.Count > 0)
-            { 
-                Root.ShowNotification(new GUIContent("Add sprite"));
-            }
+            if (m_cacheSpriteToInsert.Count > 0) Root.ShowNotification(new GUIContent("Add sprite"));
 
             while(m_cacheSpriteToInsert.Count > 0)
             {
@@ -71,32 +64,32 @@ namespace SpriteAnimatorEditor
         {
             if (m_animation == null)
             {
-                SpriteAnimatorEditorExtencion.Elements.Header("Select or create animation", 35);
+                GUIPro.Elements.Header("Select or create animation", 35);
                 return;
             }
             else
             {
-                SpriteAnimatorEditorExtencion.Elements.Header(m_animation.Path, 35);
+                GUIPro.Elements.Header(m_animation.Path, 35);
 
                 GUILayout.Space(2);
 
-                SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Horizontal, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
+                GUIPro.Layout.Control(GUIPro.Layout.Direction.Horizontal, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
                 {
-                    SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
+                    GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
                     {
                         //Player
-                        SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawPlayer);
+                        GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawPlayer);
                         //Time Lines
-                        SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, 200, SpriteAnimatorWindow.EditorResources.Background0, DrawTimeLine);
+                        GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, 200, SpriteAnimatorWindow.EditorResources.Background0, DrawTimeLine);
                     });
                     GUILayout.Space(2);
                     //Tools
-                    SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, 300, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawSetting);
+                    GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, 300, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawSetting);
                 });
-                Root.Repaint();
                 Update();
             }
 
+            
             if(Event.current.type == EventType.MouseUp && (m_currentDragIndexFrame != -1 || m_currentDragIndexPivot != -1))
             {
                 m_currentDragIndexFrame = -1;
@@ -142,51 +135,47 @@ namespace SpriteAnimatorEditor
 
             EditorGUI.BeginChangeCheck();
 
-            if (GUILayout.Button("ANIMATION OPTIONS", SpriteAnimatorWindow.EditorResources.SeparatorField, GUILayout.ExpandWidth(true), GUILayout.Height(30)))
-                Root.Data.ShowAnimationOptions = !Root.Data.ShowAnimationOptions;
-
+            Root.Data.ShowAnimationOptions = GUIPro.Button.ContextFold(Root.Data.ShowAnimationOptions, "ANIMATION", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
             if (Root.Data.ShowAnimationOptions)
             {
                 GUI.enabled = false;
-                SpriteAnimatorEditorExtencion.Field.Draw("ID", m_animation.Id);
+                GUIPro.Field.Draw("ID", m_animation.Id);
                 GUI.enabled = true;                
 
-                m_animation.TimePerFrame = SpriteAnimatorEditorExtencion.Field.Draw("Time Per Frame (ms)", m_animation.TimePerFrame);
+                m_animation.TimePerFrame = GUIPro.Field.Draw("Time Per Frame (ms)", m_animation.TimePerFrame);
                 EditorGUI.BeginChangeCheck();
                 SpriteAnimation.AnimationDirection dir = m_animation.Direction;
-                dir = SpriteAnimatorEditorExtencion.Field.Draw("Direction:", m_animation.Direction);
+                dir = GUIPro.Field.Draw("Direction:", m_animation.Direction);
                 if (EditorGUI.EndChangeCheck() && dir == SpriteAnimation.AnimationDirection.None)
                     EditorUtility.DisplayDialog("error", "La animación debe tener un dirección", "ok");
                 else
                     m_animation.Direction = dir;
 
-                m_animation.Type = SpriteAnimatorEditorExtencion.Field.Draw("Type", m_animation.Type);
+                m_animation.Type = GUIPro.Field.Draw("Type", m_animation.Type);
             }
 
-            if (GUILayout.Button("FRAME OPTIONS", SpriteAnimatorWindow.EditorResources.SeparatorField, GUILayout.ExpandWidth(true), GUILayout.Height(30)))
-                Root.Data.ShowFrameOptions = !Root.Data.ShowFrameOptions;
-
+            Root.Data.ShowFrameOptions = GUIPro.Button.ContextFold(Root.Data.ShowFrameOptions, "FRAMES", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
             if (Root.Data.ShowFrameOptions)
             {
                 if (m_animation.FrameCount > 0 && m_animation.FrameCount > m_player.FrameIndex)
                 {
-                    m_animation.Frames[m_player.FrameIndex].Time = SpriteAnimatorEditorExtencion.Field.Slider("Time", m_animation.Frames[m_player.FrameIndex].Time, 1f, 10);
-                    m_animation.Frames[m_player.FrameIndex].Sprite = (Sprite)SpriteAnimatorEditorExtencion.Field.ObjectField("Sprite", m_animation.Frames[m_player.FrameIndex].Sprite, typeof(Sprite));
+                    m_animation.Frames[m_player.FrameIndex].Time = GUIPro.Field.Slider("Time", m_animation.Frames[m_player.FrameIndex].Time, 1f, 10);
+                    m_animation.Frames[m_player.FrameIndex].Sprite = (Sprite)GUIPro.Field.ObjectField("Sprite", m_animation.Frames[m_player.FrameIndex].Sprite, typeof(Sprite));
                 }
 
-                Root.Data.ShowPivots = SpriteAnimatorEditorExtencion.Field.Draw("Show Pivots", Root.Data.ShowPivots);
+                Root.Data.ShowPivots = GUIPro.Field.Draw("Show Pivots", Root.Data.ShowPivots);
 
                 if (Root.Data.ShowPivots)
                 {
-                    if (SpriteAnimatorEditorExtencion.Button.Alternative("Add Pivot"))
+                    if (GUIPro.Button.Alternative("Add Pivot"))
                         m_animation.AddPivot();
 
                     {
                         Texture2D icon = SpriteAnimatorWindow.EditorResources.GetIcon("Delete");
                         for (int i = 0; i < m_animation.Pivots.Length; i++)
                         {
-                            m_animation.Pivots[i].Name = SpriteAnimatorEditorExtencion.Field.Draw("Pivot " + i, m_animation.Pivots[i].Name);
-                            m_animation.Pivots[i].Color = SpriteAnimatorEditorExtencion.Field.Draw("Pivot " + i, m_animation.Pivots[i].Color);
+                            m_animation.Pivots[i].Name = GUIPro.Field.Draw("Pivot " + i, m_animation.Pivots[i].Name);
+                            m_animation.Pivots[i].Color = GUIPro.Field.Draw("Pivot " + i, m_animation.Pivots[i].Color);
 
                             Rect rectPivot = GUILayoutUtility.GetLastRect();
                             rectPivot = new Rect(rectPivot.x + rectPivot.width - 230, rectPivot.y + 5, 20, 20);
@@ -203,59 +192,48 @@ namespace SpriteAnimatorEditor
                     }
                 }
             }
-            
-            if (GUILayout.Button("RENDER INFO", SpriteAnimatorWindow.EditorResources.SeparatorField, GUILayout.ExpandWidth(true), GUILayout.Height(30)))
-                Root.Data.ShowRenderInfo = !Root.Data.ShowRenderInfo;
 
+            Root.Data.ShowRenderInfo = GUIPro.Button.ContextFold(Root.Data.ShowRenderInfo, "INFO", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
             if (Root.Data.ShowRenderInfo)
             {
                 GUI.enabled = false;
-                SpriteAnimatorEditorExtencion.Field.Draw("Time", m_animation.Time);
-                SpriteAnimatorEditorExtencion.Field.Draw("State", m_player.State);
-                SpriteAnimatorEditorExtencion.Field.Draw("Frame", (m_player.FrameIndex + 1));
-                SpriteAnimatorEditorExtencion.Field.Draw("Direcation", m_player.Direction);
+                GUIPro.Field.Draw("Time", m_animation.Time);
+                GUIPro.Field.Draw("State", m_player.State);
+                GUIPro.Field.Draw("Frame", (m_player.FrameIndex + 1));
+                GUIPro.Field.Draw("Direcation", m_player.Direction);
 
                 GUI.enabled = true;
             }
 
 
-            if (GUILayout.Button("RENDER OPTIONS", SpriteAnimatorWindow.EditorResources.SeparatorField, GUILayout.ExpandWidth(true), GUILayout.Height(30)))
-                Root.Data.ShowRenderOptions = !Root.Data.ShowRenderOptions;
-
+            Root.Data.ShowRenderOptions = GUIPro.Button.ContextFold(Root.Data.ShowRenderOptions, "RENDER", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
             if (Root.Data.ShowRenderOptions)
             {
-                Root.Data.ScaleSprite = SpriteAnimatorEditorExtencion.Field.Slider("Render Scale", Root.Data.ScaleSprite, 0.1f, 20f);
-                Root.Data.ScalePivot = SpriteAnimatorEditorExtencion.Field.Slider("Pivot Scale", Root.Data.ScalePivot, 1f, 30f);
-                //Root.Data.ScaleSprite = SpriteAnimatorEditorExtencion.Field.Draw("Scale", Root.Data.ScaleSprite);
+                Root.Data.ScaleSprite = GUIPro.Field.Slider("Render Scale", Root.Data.ScaleSprite, 1f, 100f);
+                Root.Data.ScalePivot = GUIPro.Field.Slider("Pivot Scale", Root.Data.ScalePivot, 1f, 100f);
                 Mathf.Clamp(Root.Data.ScaleSprite, .1f, 10);
-                Root.Data.PreviewBackgroundColor = SpriteAnimatorEditorExtencion.Field.Draw("Background", Root.Data.PreviewBackgroundColor);
-                Root.Data.DrawSpriteZone = SpriteAnimatorEditorExtencion.Field.Draw("Sprite Zone", Root.Data.DrawSpriteZone);
-                Root.Data.AutoScale = SpriteAnimatorEditorExtencion.Field.Draw("Auto Scale", Root.Data.AutoScale);
+                Root.Data.PreviewBackgroundColor = GUIPro.Field.Draw("Background", Root.Data.PreviewBackgroundColor);
+                Root.Data.DrawSpriteZone = GUIPro.Field.Draw("Sprite Zone", Root.Data.DrawSpriteZone);
             }
             GUILayout.EndScrollView();
 
 
-            if(EditorGUI.EndChangeCheck())
+            if (EditorGUI.EndChangeCheck() && (Event.current.type == EventType.KeyUp || Event.current.type == EventType.MouseUp)) 
             {
                 Root.Snapshot("options");
-                Root.Repaint();
                 Root.Save();
             }
         }
 
         private void DrawPlayer()
         {
-            SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, () =>
+            GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, () =>
             {
-                SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, () =>
+                GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, () =>
                 {
-                    SpriteAnimatorEditorExtencion.Elements.Header("Render (" + m_spriteRect.width 
-                        + " x " + m_spriteRect.height + ")"
-                        + scale.ToString("F1") + "x", 30);  
-                    
                     DrawSpriteRender(m_player.FrameSprite);
                 });
-                SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Horizontal, -1, 30, SpriteAnimatorWindow.EditorResources.Background0, DrawPlayerBar);
+                GUIPro.Layout.Control(GUIPro.Layout.Direction.Horizontal, -1, 30, SpriteAnimatorWindow.EditorResources.Background0, DrawPlayerBar);
             });
         }
 
@@ -321,19 +299,19 @@ namespace SpriteAnimatorEditor
             }
             GUILayout.EndHorizontal();
 
-            m_timelineScroll = GUILayout.BeginScrollView(m_timelineScroll, false, false, GUILayout.Height(150));
+            m_timelineScroll = GUILayout.BeginScrollView(m_timelineScroll, false, false, GUILayout.Height(170));
             {
-                GUILayout.BeginVertical(GUILayout.ExpandWidth(true));
+                GUILayout.BeginVertical(SpriteAnimatorWindow.EditorResources.TimeLine, GUILayout.ExpandWidth(true));
                 {
                     GUILayout.FlexibleSpace();
                     GUILayout.BeginHorizontal();
                     {                        
                         for (int i = 0; i < m_animation.FrameCount; i++)
                         {
-                            GUILayout.Box("", GUIStyle.none, GUILayout.Width(80 * m_animation.Frames[i].Time), GUILayout.Height(130));
+                            GUILayout.Box("", GUIStyle.none, GUILayout.Width(80 * m_animation.Frames[i].Time), GUILayout.Height(100));
                             Rect rectElement = GUILayoutUtility.GetLastRect();
-                            GUILayout.Space(2);
-                            DrawElementInTimeLine(m_animation.Frames[i], rectElement, m_player.FrameIndex == i, i);                           
+                            GUILayout.Space(10);
+                            DrawTimeLineElement(m_animation.Frames[i], rectElement, m_player.FrameIndex == i, i);                           
                         }
                     }
                     GUILayout.EndHorizontal();
@@ -380,8 +358,8 @@ namespace SpriteAnimatorEditor
 
             if (m_currentDragIndexFrame != -1 && m_animation.ContainFrameIndex(m_currentDragIndexFrame))
             {
-                DrawSpriteTimeLine(m_animation.Frames[m_currentDragIndexFrame].Sprite,
-                    new Rect(Event.current.mousePosition.x - 80, Event.current.mousePosition.y - 80, 130, 80));
+                DrawSpriteRenderInternal(new Rect(Event.current.mousePosition.x - 80, Event.current.mousePosition.y - 80, 130, 80),
+                                         m_animation.Frames[m_currentDragIndexFrame].Sprite, 1);
             }
 
             if (m_currentTooltipIndexFrame != -1 && m_animation.ContainFrameIndex(m_currentTooltipIndexFrame))
@@ -394,18 +372,23 @@ namespace SpriteAnimatorEditor
             }
         }
         
-        private void DrawElementInTimeLine(SpriteAnimation.FrameInfo frame, Rect rect, bool active, int index)
+        private void DrawTimeLineElement(SpriteAnimation.FrameInfo frame, Rect rect, bool active, int index)
         {
             EditorGUI.DrawRect(rect, active ? SpriteAnimatorWindow.EditorResources.Colors[2] : SpriteAnimatorWindow.EditorResources.Colors[1]);
-            DrawSpriteTimeLine(frame.Sprite, rect);
 
-            GUI.Label(new Rect(rect.x, rect.y, rect.width, 20), index + "-"+
-                frame.Time.ToString("F2") +
-                "["+ ((frame.Time * m_animation.TimePerFrame) / 60).ToString("F2") +"]", SpriteAnimatorWindow.EditorResources.LabelTimeLine);
+            {
+                Rect spriteRect = rect;
+                spriteRect.width -= 20;
+                spriteRect.x += 10;
+                spriteRect.height -= 20;
+                spriteRect.y += 20;
+                DrawSpriteRenderInternal(spriteRect, frame.Sprite, 1);
+            }
 
-            
-
-            
+            GUI.Label(new Rect(rect.x, rect.y, rect.width, 20), 
+                index + "-"+ frame.Time.ToString("F2") +  "["+ ((frame.Time * m_animation.TimePerFrame) / 60).ToString("F2") +"]",
+                SpriteAnimatorWindow.EditorResources.LabelTimeLine);           
+                        
             if(m_currentDragIndexFrame != -1)
             {
                 Rect dropZone = new Rect(rect.x + 10, rect.y + 30, 64, 64);
@@ -528,119 +511,68 @@ namespace SpriteAnimatorEditor
 
         private void DrawSpriteRender(Sprite sprite)
         {
-            SpriteAnimatorEditorExtencion.Layout.Control(SpriteAnimatorEditorExtencion.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, null);
+            GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, null);
             Rect rect = GUILayoutUtility.GetLastRect();
-            Rect nonClipRect = rect;
+            EditorGUI.DrawRect(rect, SpriteAnimatorWindow.EditorResources.Colors[3]);
 
-            EditorGUI.DrawRect(rect, Root.Data.PreviewBackgroundColor);
-            
             if (sprite == null)
             {
-                GUI.Label(rect, "Clip is Empty", SpriteAnimatorWindow.EditorResources.Background3);
+                GUI.Label(rect, "Frame empty", SpriteAnimatorWindow.EditorResources.Background3);
                 return;
-            }
+            }            
 
-            Matrix4x4 matrix = GUI.matrix;
+            Rect spriteRect = rect;
+            spriteRect.width -= 50;
+            spriteRect.height -= 30;
+            spriteRect.x += 25;
+            spriteRect.y += 25;
 
-            if (Event.current.type == EventType.Repaint)
-            {
+            spriteRect =  DrawSpriteRenderInternal(spriteRect, sprite, Root.Data.ScaleSprite / 100, Root.Data.DrawSpriteZone);
 
-                GUI.BeginGroup(rect);                
-                int factorScaleX = Mathf.FloorToInt(rect.width / sprite.rect.width);
-                int factorScaleY = Mathf.FloorToInt(rect.height / sprite.rect.height);
-                float factorTarget = Mathf.Min(factorScaleX, factorScaleY);
-                
-                scale = (Root.Data.AutoScale) ? factorTarget: Root.Data.ScaleSprite;
-
-                scale = Mathf.Clamp(scale, 0.01f, float.PositiveInfinity);
-
-                GUIUtility.ScaleAroundPivot(Vector2.one * scale, new Vector2(rect.width / 2, rect.height / 2));
-
-                Rect spriteOriginalRect = sprite.rect;
-                nonClipOffset = Vector2.zero;
-
-                rect.x = rect.y = 0;
-                Texture2D texture = sprite.texture;
-                spriteOriginalRect.xMin /= texture.width;
-                spriteOriginalRect.xMax /= texture.width;
-                spriteOriginalRect.yMin /= texture.height;
-                spriteOriginalRect.yMax /= texture.height;
-
-                float height = sprite.rect.height;
-                float width = sprite.rect.width;
-
-                /*
-                if ((factorIsVertical && height * scale > rect.height) || (!factorIsVertical && width * scale > rect.width))
-                {
-                    GUI.matrix = matrix;
-                    GUI.Label(rect, "Error, use auto-scale option", SpriteAnimatorWindow.EditorResources.Background3);
-                }
-                else*/
-                {
-                    float y = (rect.height - height) / 2;
-                    float x = (rect.width - width) / 2;
-
-                    Rect spriteRect = new Rect(x, y, width, height);
-
-                    nonClipOffset.x = (nonClipRect.width - (width * scale)) / 2;
-                    nonClipOffset.y = (nonClipRect.height - (height * scale)) / 2;
-                    
-                    if (Root.Data.DrawSpriteZone)
-                        EditorGUI.DrawRect(spriteRect, new Color(0, 0, 0, .05f));
-
-                    GUI.DrawTextureWithTexCoords(spriteRect, texture, spriteOriginalRect);
-                    m_spriteRect = spriteRect;
-                    GUI.matrix = matrix;
-                }
-                GUI.EndGroup();
-            }
-
-            GUI.Label(new Rect(nonClipRect.x, nonClipRect.y, nonClipRect.width, 20),
-                nonClipRect.width + "x" + nonClipRect.height + sprite.rect.size,
-                SpriteAnimatorWindow.EditorResources.Background5);
+            GUI.Label(new Rect(rect.x, rect.y, rect.width, 20), $"Render {sprite.rect.size} | {Root.Data.ScaleSprite}%",  SpriteAnimatorWindow.EditorResources.Header0);
 
             if (Root.Data.ShowPivots)
             {
-                Rect pivotRect = m_spriteRect;
-                pivotRect.position = nonClipRect.position;
-                pivotRect.position += nonClipOffset;
-                pivotRect.size *= scale;
-                DrawPivots(pivotRect);
+                DrawPivots(spriteRect);
             }
         }
 
-        private void DrawSpriteTimeLine(Sprite sprite, Rect rect)
+       
+
+        private static Rect DrawSpriteRenderInternal(Rect rect, Sprite sprite, float scale, bool spriteZone = true)
         {
             if (sprite == null)
             {
-                rect.y += 40;
-                rect.height = 30;
                 GUI.Label(rect, "Empty", SpriteAnimatorWindow.EditorResources.Background3);
-                return;
+                return rect;
             }
 
-            Rect positionRect = sprite.rect;
-            Texture2D texture = sprite.texture;
-            positionRect.xMin /= texture.width;
-            positionRect.xMax /= texture.width;
-            positionRect.yMin /= texture.height;
-            positionRect.yMax /= texture.height;
+            Rect spaceRect = rect;
+            scale = Mathf.Clamp(scale, 0.1f, 1.0f);
 
-            float height = 64;
-            float width = 64;
+            Rect textCoords = sprite.rect;
+            textCoords.xMin /= sprite.texture.width;
+            textCoords.xMax /= sprite.texture.width;
+            textCoords.yMin /= sprite.texture.height;
+            textCoords.yMax /= sprite.texture.height;
             
-            float y = rect.y + 30;
-            float x = rect.x + (rect.width - width) / 2;
-            Rect spriteRect = new Rect(x, y, width, height);
+            Vector2 ratio = (spaceRect.size / sprite.rect.size);
 
-            EditorGUI.DrawRect(spriteRect, Root.Data.PreviewBackgroundColor);
-            GUI.DrawTextureWithTexCoords(spriteRect, texture, positionRect);
+            rect.size = sprite.rect.size;
+            rect.size *= Mathf.Min(ratio.x, ratio.y);
+            rect.size *= scale;
+            rect.x += (spaceRect.width - rect.width) / 2;
+            rect.y += (spaceRect.height - rect.height) / 2;
+
+            if (spriteZone)
+                EditorGUI.DrawRect(rect, SpriteAnimatorWindow.Instance.Data.PreviewBackgroundColor);
+
+            GUI.DrawTextureWithTexCoords(rect, sprite.texture, textCoords);
+            return rect;
         }
 
         private void DrawPivots(Rect rect)
         {
-            //EditorGUI.DrawRect(rect, new Color(255, 0, 0, .5f));
-
             try
             {
                 SpriteAnimation.FrameInfo data = m_animation.Frames[m_player.FrameIndex];
@@ -650,7 +582,7 @@ namespace SpriteAnimatorEditor
                     if (data.Pivots.Count - 1 < i)
                         break;
 
-                    data.Pivots[i] = DrawPivotInGUI(i, data.Pivots[i], m_animation.Pivots[i].Name, rect);
+                    data.Pivots[i] = DrawPivotViewPlayer(i, data.Pivots[i], m_animation.Pivots[i].Name, rect);
                 }
             }
             catch
@@ -659,33 +591,41 @@ namespace SpriteAnimatorEditor
             }
         }
 
-        private Vector2 DrawPivotInGUI(int index, Vector2 point, string name, Rect rect)
+        private Vector2 DrawPivotViewPlayer(int index, Vector2 point, string name, Rect rect)
         {
-            Rect controlRect = new Rect(rect.x + (point.x * scale), rect.y + (point.y * scale), 
-                Root.Data.ScalePivot * scale, Root.Data.ScalePivot * scale);
+            float posX = rect.width * point.x;
+            float posY = rect.height * point.y;
+            float pivotScale = 10 * (Root.Data.ScalePivot / 100);
 
-            EditorGUI.DrawRect(controlRect, m_animation.Pivots[index].Color);
-            GUIStyle styleLabel = SpriteAnimatorWindow.EditorResources.LabelPivot;
-            styleLabel.fontSize = (int)controlRect.height - 5;
-            GUI.Label(new Rect(controlRect.x + controlRect.width, controlRect.y, 15 * scale, controlRect.height), name + point, styleLabel);
+            Rect pivotRect = new Rect(rect.x + posX - pivotScale / 2, rect.y + posY - pivotScale / 2, pivotScale, pivotScale);
+            EditorGUI.DrawRect(pivotRect, m_animation.Pivots[index].Color);
 
-            if (Event.current.type == EventType.MouseDown && controlRect.Contains(Event.current.mousePosition) && Root.IsActiveWindows)
+            Rect labelRect = pivotRect;
+            labelRect.height = 20;
+            labelRect.width = 200;
+            labelRect.x = rect.x + posX + 5;
+            labelRect.y = rect.y + posY - 11;
+            
+            GUI.Label(labelRect, $"[{index}]{name}", SpriteAnimatorWindow.EditorResources.LabelPivot);            
+
+
+            if (Event.current.type == EventType.MouseDown && pivotRect.Contains(Event.current.mousePosition) && Root.IsActiveWindows)
             {
                 m_currentDragIndexPivot = index;
                 Event.current.Use();
             }
-            else if (Event.current.type == EventType.MouseUp && Root.IsActiveWindows)
+            else if (Event.current.type == EventType.MouseUp && Root.IsActiveWindows && m_currentDragIndexPivot != -1)
             {
                 m_currentDragIndexPivot = -1;
+                Root.Snapshot("MovePivot");
+                Event.current.Use();
             }
             else if (m_currentDragIndexPivot == index && Event.current.type == EventType.MouseDrag && Root.IsActiveWindows)
             {
-                point += (Event.current.delta / scale);
-                point.x = Mathf.Clamp(point.x, 0, m_player.FrameSprite.rect.width - 2);
-                point.y = Mathf.Clamp(point.y, 0, m_player.FrameSprite.rect.height - 2);
+                point += Event.current.delta / new Vector2(rect.width, rect.height);
                 Event.current.Use();
-            }         
-            return point;
+            }
+            return new Vector2(Mathf.Clamp(point.x, 0, 1), Mathf.Clamp(point.y, 0, 1));
         }
 
         private static void DropAreaGUI(Rect rect, Action<List<UnityEngine.Object>> OnDrop, params Type[] validTypes)

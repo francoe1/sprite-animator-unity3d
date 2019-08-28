@@ -6,7 +6,7 @@ namespace SpriteAnimatorRuntime
 {
     [RequireComponent(typeof(SpriteRenderer))]
     [RequireComponent(typeof(SpriteAnimatorEvent))]
-    [AddComponentMenu("SpriteAnimator/Controller")]
+    [AddComponentMenu("SpriteAnimator/SpriteAnimatorController")]
     public class SpriteAnimatorController : MonoBehaviour
     {
         [HideInInspector]
@@ -25,6 +25,12 @@ namespace SpriteAnimatorRuntime
             Data = Instantiate(Data);
         }
 
+        private void Start()
+        {
+            if (SelectAnimationId != -1)
+                Player.PlayAnimation(Data.GetAnimation(SelectAnimationId));
+        }
+
         private void Update()
         {
             Player.Update();
@@ -39,14 +45,14 @@ namespace SpriteAnimatorRuntime
             {
                 if (Player.HasPivot(pivot.PivotName))
                 {
-                    if (pivot.WorldPosition)
-                    {
-                        pivot.Transform.position = transform.position + (Vector3)Player.GetPointOfPivot(pivot.PivotName);
-                    }
+                    Vector2 pos = Player.GetPointOfPivot(pivot.PivotName);
+                    if (m_renderer.flipX) pos.x *= -1;
+                    if (m_renderer.flipY) pos.y *= -1;
+
+                    if (pivot.IsLocal)
+                        pivot.Transform.localPosition = pos;
                     else
-                    {
-                        pivot.Transform.localPosition = Player.GetPointOfPivot(pivot.PivotName);
-                    }
+                        pivot.Transform.position = transform.position + (Vector3)pos;
                 }
             }
         }
@@ -69,6 +75,6 @@ namespace SpriteAnimatorRuntime
     {
         public string PivotName = "";
         public Transform Transform;
-        public bool WorldPosition;
+        public bool IsLocal = true;
     }
 }

@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -8,7 +6,7 @@ using UnityEngine;
 namespace SpriteAnimatorEditor
 {
     [Serializable]
-    internal class SpriteAnimatorResources : ScriptableObject
+    internal class GUIResources : ScriptableObject
     {
         [HideInInspector]
         public Color[] Colors;
@@ -36,6 +34,8 @@ namespace SpriteAnimatorEditor
         public GUIStyle Background5;
         [HideInInspector]
         public GUIStyle Background8;
+        [HideInInspector]
+        public GUIStyle TimeLine;
 
         [HideInInspector]
         public GUIStyle Field;
@@ -142,7 +142,7 @@ namespace SpriteAnimatorEditor
                 CreateColor(68, 68, 68), //0
                 CreateColor(51, 51, 51), //1
                 CreateColor(77, 124, 255), //2
-                CreateColor(234, 79, 59), //3
+                CreateColor(20, 20, 20), //3
                 CreateColor(42, 219, 138), //4
                 CreateColor(41, 41, 41),//5
                 CreateColor(120, 120, 120), //6
@@ -509,18 +509,18 @@ namespace SpriteAnimatorEditor
                 Field.fontSize = 10;
                 Field.fontStyle = FontStyle.Bold;
                 Field.padding = new RectOffset(10, 10, 10, 10);
-                Field.margin = new RectOffset(0, 0, 0, 5);
+                Field.margin = new RectOffset(0, 0, 0, 0);
             }
 
             {
                 SeparatorField = new GUIStyle();
                 SeparatorField.normal.background = Textures[5];
                 SeparatorField.normal.textColor = Color.white;
-                SeparatorField.alignment = TextAnchor.MiddleCenter;
+                SeparatorField.alignment = TextAnchor.MiddleLeft;
                 SeparatorField.fontSize = 10;
                 SeparatorField.fontStyle = FontStyle.Bold;
                 SeparatorField.padding = new RectOffset(10, 10, 10, 10);
-                SeparatorField.margin = new RectOffset(0, 0, 0, 5);
+                SeparatorField.margin = new RectOffset(0, 0, 0, 0);
             }
 
             {
@@ -590,6 +590,18 @@ namespace SpriteAnimatorEditor
             {
                 ToggleBackgroundControl = new GUIStyle();
                 ToggleBackgroundControl.normal.background = Textures[6];
+            }
+
+            {
+                TimeLine = new GUIStyle();
+                TimeLine.normal.background = Textures[0];
+                TimeLine.normal.textColor = Color.white;
+
+                TimeLine.alignment = TextAnchor.MiddleLeft;
+                TimeLine.fontSize = 10;
+                TimeLine.fontStyle = FontStyle.Bold;
+                TimeLine.padding = new RectOffset(10, 10, 10, 10);
+                TimeLine.margin = new RectOffset(0, 0, 0, 0);
             }
         }
 
@@ -675,9 +687,9 @@ namespace SpriteAnimatorEditor
             return LoadTexture(texture.name);
         }
 
-        private static Color CreateColor(int r, int g, int b)
+        internal static Color32 CreateColor(int r, int g, int b, float alfa = 1)
         {
-            return new Color(r / 255f, g / 255f, b / 255f);
+            return new Color(r / 255f, g / 255f, b / 255f, alfa);
         }        
     }
 

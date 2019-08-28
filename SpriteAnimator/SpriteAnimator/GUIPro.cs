@@ -3,9 +3,11 @@ using UnityEditor;
 using System;
 using SpriteAnimatorEditor;
 
-internal static class SpriteAnimatorEditorExtencion
+internal static class GUIPro
 {
     public const int MAX_HEIGTH = 32;
+    private const int INPUT_WIDTH_VALUE = 154;
+    private const int INPUT_SPACE = 150;
     private static readonly GUIStyle m_defaultGUISkin = new GUIStyle();
 
     public static class Field
@@ -55,31 +57,43 @@ internal static class SpriteAnimatorEditorExtencion
         public static Color ColorBox(string text, Color value)
         {
             if (AvailableForDraw()) return value;
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+
+            try
             {
-                GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-                Rect rect = GUILayoutUtility.GetLastRect();
-                rect.x += rect.width - 204;
-                rect.height -= 14;
-                rect.y += 7;
-                rect.width = 200;
-                value = EditorGUI.ColorField(rect, value);
+                GUILayout.BeginHorizontal(GUILayout.Height(20));
+                {
+                    GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+                    Rect rect = GUILayoutUtility.GetLastRect();
+                    rect.x += rect.width - INPUT_WIDTH_VALUE;
+                    rect.height -= 14;
+                    rect.y += 7;
+                    rect.width = INPUT_SPACE;
+
+                    if (Event.current.button == 0 &&
+                    Event.current.type == EventType.MouseDown &&
+                    rect.Contains(Event.current.mousePosition))
+                    {
+                        GUILayout.EndHorizontal();
+                    }
+                    value = EditorGUI.ColorField(rect, value);
+                }
+                GUILayout.EndHorizontal();
             }
-            GUILayout.EndHorizontal();
+            catch { }
             return value;
         }
 
-        public static Vector3 ColorBox(string text, Vector3 value)
+        public static Vector3 Vector3(string text, Vector3 value)
         {
             if (AvailableForDraw()) return value;
             GUILayout.BeginHorizontal(GUILayout.Height(20));
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
-                rect.x += rect.width - 204;
+                rect.x += rect.width - INPUT_WIDTH_VALUE;
                 rect.height -= 14;
                 rect.y += 7;
-                rect.width = 200;
+                rect.width = INPUT_SPACE;
                 value = EditorGUI.Vector3Field(rect, "", value);
             }
             GUILayout.EndHorizontal();
@@ -93,10 +107,10 @@ internal static class SpriteAnimatorEditorExtencion
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
-                rect.x += rect.width - 204;
+                rect.x += rect.width - INPUT_WIDTH_VALUE;
                 rect.height -= 8;
                 rect.y += 4;
-                rect.width = 200;
+                rect.width = INPUT_SPACE;
                 value = GUI.TextField(rect, value, SpriteAnimatorWindow.EditorResources.FieldValue);
             }
             GUILayout.EndHorizontal();
@@ -110,10 +124,10 @@ internal static class SpriteAnimatorEditorExtencion
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
-                rect.x += rect.width - 204;
+                rect.x += rect.width - INPUT_WIDTH_VALUE;
                 rect.height -= 8;
                 rect.y += 4;
-                rect.width = 200;
+                rect.width = INPUT_SPACE;
                 value = EditorGUI.FloatField(rect, value, SpriteAnimatorWindow.EditorResources.FieldValue);
             }
             GUILayout.EndHorizontal();
@@ -127,10 +141,10 @@ internal static class SpriteAnimatorEditorExtencion
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
-                rect.x += rect.width - 204;
+                rect.x += rect.width - INPUT_WIDTH_VALUE;
                 rect.height -= 8;
                 rect.y += 4;
-                rect.width = 200;
+                rect.width = INPUT_SPACE;
                 value = EditorGUI.EnumPopup(rect, value, SpriteAnimatorWindow.EditorResources.FieldEnum);
 
                 if(GUI.enabled)
@@ -147,17 +161,16 @@ internal static class SpriteAnimatorEditorExtencion
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
-                rect.x += rect.width - 204;
+                rect.x += rect.width - INPUT_WIDTH_VALUE;
                 rect.height -= 8;
                 rect.y += 4;
-                rect.width = 200;
-
-                GUI.Box(rect, "", SpriteAnimatorWindow.EditorResources.FieldValue);
+                rect.width = INPUT_SPACE;
 
                 rect.width -= 10;
                 rect.x += 8;
                 rect.height -= 5;
                 rect.y += 2.5f;
+                
                 value = EditorGUI.Slider(rect, "", value, min, max);
             }
             GUILayout.EndHorizontal();
@@ -171,11 +184,11 @@ internal static class SpriteAnimatorEditorExtencion
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
-                rect.x += rect.width - 204;
+                rect.x += rect.width - INPUT_WIDTH_VALUE;
                 rect.x += 0;
                 rect.height -= 16;
                 rect.y += 8;
-                rect.width = 200;
+                rect.width = INPUT_SPACE;
 
                 value = EditorGUI.ObjectField(rect, value, type, true);
 
@@ -189,7 +202,7 @@ internal static class SpriteAnimatorEditorExtencion
             }
             GUILayout.EndHorizontal();
 
-            return value;//EditorGUILayout.ObjectField(text, obj, type, true);
+            return value;
         }
 
         public static T Draw<T>(string text, T value)
@@ -280,6 +293,26 @@ internal static class SpriteAnimatorEditorExtencion
         {
             return GUILayout.Button(text.ToUpper(), SpriteAnimatorWindow.EditorResources.ButtonAlternative);
         }
+
+        public static bool ContextFold(bool value, string text, string icon_enable, string icon_disable)
+        {
+            GUILayout.Label("", SpriteAnimatorWindow.EditorResources.SeparatorField, GUILayout.ExpandWidth(true), GUILayout.Height(30));
+            GUIContent icon = EditorGUIUtility.IconContent(value ? icon_enable : icon_disable);
+            Rect rect = GUILayoutUtility.GetLastRect();
+            Rect rectInput = rect;
+            GUI.Label(new Rect(rect.x + 20, rect.y - 1, rect.width, rect.height), text, SpriteAnimatorWindow.EditorResources.SeparatorField);
+            GUI.Label(new Rect(rect.x + 5, rect.y + 6, 30, 30), icon);
+
+            if (Event.current.button == 0 &&
+                Event.current.type == EventType.MouseDown &&
+                rectInput.Contains(Event.current.mousePosition))
+            {
+                Event.current.Use();
+                return !value;
+            }
+
+            return value;
+        }
     }
 
     public static class Layout
@@ -299,6 +332,8 @@ internal static class SpriteAnimatorEditorExtencion
         {
             if (style == null)
                 style = m_defaultGUISkin;
+
+            GUI.BeginGroup(new Rect(0, 0, Screen.width, Screen.height));
             try
             {
                 switch (direction)
@@ -327,6 +362,7 @@ internal static class SpriteAnimatorEditorExtencion
             {
                 if (SpriteAnimatorWindow.DEV_MODE)  Debug.LogException(ex);
             }
+            GUI.EndGroup();
         }
     }
     
@@ -338,6 +374,35 @@ internal static class SpriteAnimatorEditorExtencion
         }
     }
     
+    public static class Tools
+    {
+        internal static void DrawGrid(Rect rect, int widht, int height, int size, Color color)
+        {
+            for (int x = 0; x < widht; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    DrawLine(new Vector2(rect.x, rect.y + (size * y)), new Vector2(rect.x + rect.width, rect.y + (size * y)), color, 1);
+                    DrawLine(new Vector2(rect.x + (size * x), rect.y), new Vector2(rect.x + (size * x), rect.y + rect.height), color, 2);
+                }
+            }
+        }
+
+        internal static void DrawLine(Vector2 start, Vector2 end, Color color, float width)
+        {
+            if (start.y == end.y)
+            {
+                Rect rect = new Rect(start.x, start.y, end.x - start.x, width);
+                EditorGUI.DrawRect(rect, color);
+            }
+            else
+            {
+                Rect rect = new Rect(start.x, start.y, width, end.y - start.y);
+                EditorGUI.DrawRect(rect, color);
+            }
+        }
+    }
+
     public static bool AvailableForDraw()
     {
         return false;
