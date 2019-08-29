@@ -3,7 +3,6 @@ using UnityEngine;
 
 namespace SpriteAnimatorRuntime
 {
-    [Serializable]
     public class SpriteAnimatorPlayer
     {
         public SpriteAnimation Animation { get; private set; }

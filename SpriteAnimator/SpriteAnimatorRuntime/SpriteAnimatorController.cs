@@ -17,6 +17,9 @@ namespace SpriteAnimatorRuntime
         private SpriteRenderer m_renderer { get; set; }
 
         public List<AnimationPivotSync> PivotSync = new List<AnimationPivotSync>();
+
+
+        private List<SpriteAnimation> m_cacheAnimations = new List<SpriteAnimation>();
                        
         private void Awake()
         {
@@ -61,12 +64,35 @@ namespace SpriteAnimatorRuntime
         {
             path = "Root/" + path;
 
-            SpriteAnimation anim = Data.GetAnimation(path);
+            SpriteAnimation anim = GetAnimation(path);
             if (anim != null && Player.Animation != anim)
             {
                 Player.PlayAnimation(anim);
                 Player.Reset();
             }
+        }
+
+        private SpriteAnimation GetAnimation(string path)
+        {
+            for (int i = 0; i < m_cacheAnimations.Count; i++)
+            {
+                if (m_cacheAnimations[i] == null)
+                {
+                    m_cacheAnimations.RemoveAt(i);
+                    continue;
+                }
+
+                if(m_cacheAnimations[i].Path.ToLower().Equals(path.ToLower()))
+                {
+                    return m_cacheAnimations[i];
+                }
+            }
+           
+            if (m_cacheAnimations.Count > 20) m_cacheAnimations.RemoveAt(0);
+
+            SpriteAnimation anim = Data.GetAnimation(path);
+            if (anim != null) m_cacheAnimations.Add(anim);
+            return anim;
         }
     }
 

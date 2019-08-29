@@ -40,7 +40,7 @@ internal static class GUIPro
         {
             if (AvailableForDraw()) return value;
 
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
@@ -50,7 +50,7 @@ internal static class GUIPro
                 rect.width = 80;
                 value = Toggle(rect, value);
             }
-            GUILayout.EndHorizontal();
+            
             return value;
         }
 
@@ -58,35 +58,23 @@ internal static class GUIPro
         {
             if (AvailableForDraw()) return value;
 
-            try
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
-                GUILayout.BeginHorizontal(GUILayout.Height(20));
-                {
-                    GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-                    Rect rect = GUILayoutUtility.GetLastRect();
-                    rect.x += rect.width - INPUT_WIDTH_VALUE;
-                    rect.height -= 14;
-                    rect.y += 7;
-                    rect.width = INPUT_SPACE;
-
-                    if (Event.current.button == 0 &&
-                    Event.current.type == EventType.MouseDown &&
-                    rect.Contains(Event.current.mousePosition))
-                    {
-                        GUILayout.EndHorizontal();
-                    }
-                    value = EditorGUI.ColorField(rect, value);
-                }
-                GUILayout.EndHorizontal();
+                GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+                Rect rect = GUILayoutUtility.GetLastRect();
+                rect.x += rect.width - INPUT_WIDTH_VALUE;
+                rect.height -= 14;
+                rect.y += 7;
+                rect.width = INPUT_SPACE;
+                value = EditorGUI.ColorField(rect, value);
             }
-            catch { }
             return value;
         }
 
         public static Vector3 Vector3(string text, Vector3 value)
         {
             if (AvailableForDraw()) return value;
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
@@ -96,14 +84,13 @@ internal static class GUIPro
                 rect.width = INPUT_SPACE;
                 value = EditorGUI.Vector3Field(rect, "", value);
             }
-            GUILayout.EndHorizontal();
             return value;
         }
 
         public static string TextBox(string text, string value)
         {
             if (AvailableForDraw()) return value;
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
@@ -113,14 +100,13 @@ internal static class GUIPro
                 rect.width = INPUT_SPACE;
                 value = GUI.TextField(rect, value, SpriteAnimatorWindow.EditorResources.FieldValue);
             }
-            GUILayout.EndHorizontal();
             return value;
         }
 
         public static float NumberBox(string text, float value)
         {
             if (AvailableForDraw()) return value;
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
@@ -130,14 +116,13 @@ internal static class GUIPro
                 rect.width = INPUT_SPACE;
                 value = EditorGUI.FloatField(rect, value, SpriteAnimatorWindow.EditorResources.FieldValue);
             }
-            GUILayout.EndHorizontal();
             return value;
         }
 
-        public static Enum Enum(string text, System.Enum value)
+        public static Enum Enum(string text, Enum value)
         {
             if (AvailableForDraw()) return value;
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
@@ -150,14 +135,15 @@ internal static class GUIPro
                 if(GUI.enabled)
                     GUI.DrawTexture(new Rect(rect.x + 178, rect.y + 3, rect.height - 6, rect.height - 6), SpriteAnimatorWindow.EditorResources.GetIcon("ListEnum"));
             }
-            GUILayout.EndHorizontal();
             return value;
         }
 
-        public static float Slider (string text, float value, float min, float max)
+        public static float Slider (string text, float value, float min, float max, Action onChange = null)
         {
             if (AvailableForDraw()) return value;
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+
+            float initialValue = value;
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
@@ -170,17 +156,16 @@ internal static class GUIPro
                 rect.x += 8;
                 rect.height -= 5;
                 rect.y += 2.5f;
-                
                 value = EditorGUI.Slider(rect, "", value, min, max);
             }
-            GUILayout.EndHorizontal();
+            if (initialValue != value) onChange?.Invoke();
             return value;
         }
 
         public static UnityEngine.Object ObjectField(string text, UnityEngine.Object value, Type type)
         {
             if (AvailableForDraw()) return value;
-            GUILayout.BeginHorizontal(GUILayout.Height(20));
+            using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(GUILayout.Height(20)))
             {
                 GUILayout.Label(text.ToUpper(), SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
                 Rect rect = GUILayoutUtility.GetLastRect();
@@ -200,69 +185,63 @@ internal static class GUIPro
                 if (icon != null)
                     GUI.DrawTexture(new Rect(rect.x - 30, rect.y - 2, 20, 20), icon.image);
             }
-            GUILayout.EndHorizontal();
-
             return value;
         }
 
-        public static T Draw<T>(string text, T value)
+        public static T Draw<T>(string text, T value, Action onChange = null)
         {
+            T initialValue = value;
             if(IsType(typeof(T), typeof(int)))
             {
                 int v = (int)NumberBox(text, (int)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (IsType(typeof(T), typeof(bool)))
+            else if (IsType(typeof(T), typeof(bool)))
             {
                 bool v = Toggle(text, (bool)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (IsType(typeof(T), typeof(Color)))
+            else if (IsType(typeof(T), typeof(Color)))
             {
                 Color v = ColorBox(text, (Color)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (IsType(typeof(T), typeof(float)))
+            else if (IsType(typeof(T), typeof(float)))
             {
                 float v = NumberBox(text, (float)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (IsType(typeof(T), typeof(Single)))
+            else if (IsType(typeof(T), typeof(Single)))
             {
                 float v = NumberBox(text, (float)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (IsType(typeof(T), typeof(uint)))
+            else if (IsType(typeof(T), typeof(uint)))
             {
                 uint v = (uint)NumberBox(text, (uint)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (IsType(typeof(T), typeof(string)))
+            else if (IsType(typeof(T), typeof(string)))
             {
                 string v = TextBox(text, (string)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (typeof(T).IsEnum)
+            else if (typeof(T).IsEnum)
             {
                 Enum v = Enum(text, (Enum)Convert.ChangeType(value, typeof(T)));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
-
-            if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(T)))
+            else if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(T)))
             {
                 UnityEngine.Object v = ObjectField(text, (UnityEngine.Object)Convert.ChangeType(value, typeof(T)), typeof(T));
-                return (T)Convert.ChangeType(v, typeof(T));
+                value = (T)Convert.ChangeType(v, typeof(T));
             }
+            else
+            {
+                GUILayout.Label(text + " > " + typeof(T), SpriteAnimatorWindow.EditorResources.Field);
+            }           
 
-            GUILayout.Label(text + " > " + typeof(T), SpriteAnimatorWindow.EditorResources.Field);
-
+            if (!value.Equals(initialValue)) onChange?.Invoke();
             return value;
         }
         
@@ -294,13 +273,13 @@ internal static class GUIPro
             return GUILayout.Button(text.ToUpper(), SpriteAnimatorWindow.EditorResources.ButtonAlternative);
         }
 
-        public static bool ContextFold(bool value, string text, string icon_enable, string icon_disable)
+        public static bool ContextFold(bool value, string text, string icon_enable, string icon_disable, Action onChange = null)
         {
             GUILayout.Label("", SpriteAnimatorWindow.EditorResources.SeparatorField, GUILayout.ExpandWidth(true), GUILayout.Height(30));
             GUIContent icon = EditorGUIUtility.IconContent(value ? icon_enable : icon_disable);
             Rect rect = GUILayoutUtility.GetLastRect();
             Rect rectInput = rect;
-            GUI.Label(new Rect(rect.x + 20, rect.y - 1, rect.width, rect.height), text, SpriteAnimatorWindow.EditorResources.SeparatorField);
+            GUI.Label(new Rect(rect.x + 25, rect.y + 5, rect.width, rect.height), text);
             GUI.Label(new Rect(rect.x + 5, rect.y + 6, 30, 30), icon);
 
             if (Event.current.button == 0 &&
@@ -308,6 +287,7 @@ internal static class GUIPro
                 rectInput.Contains(Event.current.mousePosition))
             {
                 Event.current.Use();
+                onChange?.Invoke();
                 return !value;
             }
 
@@ -333,37 +313,48 @@ internal static class GUIPro
             if (style == null)
                 style = m_defaultGUISkin;
 
-            GUI.BeginGroup(new Rect(0, 0, Screen.width, Screen.height));
-            try
+            GUILayoutOption[] options = new GUILayoutOption[]
             {
-                switch (direction)
-                {
-                    case Direction.Vertical:
-                        {
-                            GUILayout.BeginVertical(style,
-                                (heigth == -1) ? GUILayout.ExpandHeight(true) : GUILayout.Height(heigth),
-                                (width == -1) ? GUILayout.ExpandWidth(true) : GUILayout.Width(width));
-                            if (draw != null) draw.Invoke();
-                            GUILayout.EndVertical();
-                        }
-                        break;
-                    case Direction.Horizontal:
-                        {
-                            GUILayout.BeginHorizontal(style,
-                                (heigth == -1) ? GUILayout.ExpandHeight(true) : GUILayout.Height(heigth),
-                                (width == -1) ? GUILayout.ExpandWidth(true) : GUILayout.Width(width));
-                            if (draw != null) draw.Invoke();
-                            GUILayout.EndHorizontal();
-                        }
-                        break;
-                }
-            }
-            catch (Exception ex)
+                (heigth == -1) ? GUILayout.ExpandHeight(true) : GUILayout.Height(heigth),
+                (width == -1) ? GUILayout.ExpandWidth(true) : GUILayout.Width(width)
+            };
+
+            switch (direction)
             {
-                if (SpriteAnimatorWindow.DEV_MODE)  Debug.LogException(ex);
+                case Direction.Vertical:
+                    {
+                        using (GUILayout.VerticalScope scope = new GUILayout.VerticalScope(style, options))
+                        {
+                            if (draw != null) draw.Invoke();
+                        }
+                    }
+                    break;
+                case Direction.Horizontal:
+                    {
+                        using (GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope(style, options))
+                        {
+                            if (draw != null) draw.Invoke();
+                        }
+                    }
+                    break;
             }
-            GUI.EndGroup();
         }
+
+        public static void ControlCenter(Action draw)
+        {
+            using (GUILayout.VerticalScope vscope = new GUILayout.VerticalScope())
+            {
+                GUILayout.FlexibleSpace();
+                using (GUILayout.HorizontalScope hscope = new GUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    draw?.Invoke();
+                    GUILayout.FlexibleSpace();
+                }
+                GUILayout.FlexibleSpace();
+            }
+        }
+
     }
     
     public static class Elements

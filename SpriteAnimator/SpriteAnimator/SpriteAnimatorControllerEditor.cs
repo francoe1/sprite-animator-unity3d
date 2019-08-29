@@ -109,7 +109,7 @@ namespace SpriteAnimatorEditor
 
             if (GUILayout.Button("View in Animator") && m_animationIndex <= m_animationName.Length)
             {
-                EditorWindow.GetWindow<SpriteAnimatorWindow>().Show(true);
+                SpriteAnimatorWindow.Open();
                 SpriteAnimatorWindow.Instance.SelectElementForID(m_animations[m_animationIndex].Id);
             }
 

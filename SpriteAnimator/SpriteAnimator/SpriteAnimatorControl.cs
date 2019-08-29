@@ -1,30 +1,34 @@
 ﻿using SpriteAnimatorRuntime;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
 namespace SpriteAnimatorEditor
 {
-    internal class SpriteAnimatorControl
+    [Serializable]
+    internal class SpriteAnimatorControl : ISerializationCallbackReceiver
     {
         private static SpriteAnimatorWindow Root { get; set; }
         private static Color GridColor = GUIResources.CreateColor(20, 20, 20, .5f);
         private SpriteAnimation m_animation { get; set; }
         private SpriteAnimatorPlayer m_player { get; set; }
-        private Vector2 m_timelineScroll { get; set; }
+        private Vector2 m_timelineScroll = Vector2.zero;
+        private Vector2 m_settingScroll = Vector2.zero;
+        private Vector2 m_pivotOriginalPos = Vector2.zero;
 
-        private Vector2 m_settingScroll { get; set; }
-        
-        private int m_currentDragIndexPivot { get; set; }
-        private int m_currentDragIndexFrame { get; set; }
-        private int m_currentTooltipIndexFrame { get; set; }
+        private int m_currentDragIndexPivot = 0;
+        private int m_currentDragIndexFrame = 0;
+        private int m_currentTooltipIndexFrame = 0;
+
+        internal bool AvailableAnimation => m_animation != null;
+
+        [SerializeField]
+        private byte[] m_serializeData = null;       
 
         private Stack<Sprite> m_cacheSpriteToInsert { get; set; } = new Stack<Sprite>();
-
-        public KeyCode NextFrame = KeyCode.RightArrow;
-        public KeyCode BackFrame = KeyCode.LeftArrow;
 
         public SpriteAnimatorControl(SpriteAnimatorWindow window)
         {
@@ -36,16 +40,20 @@ namespace SpriteAnimatorEditor
 
         private void Update()
         {
-            if (m_cacheSpriteToInsert.Count > 0) Root.ShowNotification(new GUIContent("Add sprite"));
-
-            while(m_cacheSpriteToInsert.Count > 0)
+            if (m_cacheSpriteToInsert.Count > 0)
             {
-                Sprite sprite = m_cacheSpriteToInsert.Pop();
+                Root.Snapshot("AddSprite");
+                Root.ShowNotification(new GUIContent("Add sprite"));
 
-                if (sprite)
+                while (m_cacheSpriteToInsert.Count > 0)
                 {
-                    int index = m_animation.AddFrame(sprite);
-                    m_player.GoToFrame(index);
+                    Sprite sprite = m_cacheSpriteToInsert.Pop();
+
+                    if (sprite)
+                    {
+                        int index = m_animation.AddFrame(sprite);
+                        m_player.GoToFrame(index);
+                    }
                 }
             }
 
@@ -53,10 +61,6 @@ namespace SpriteAnimatorEditor
             if (m_player != null)
             {
                 m_player.Update();
-
-                if (m_player.State == SpriteAnimatorPlayer.PlayerState.NextFrame ||
-                    m_player.State == SpriteAnimatorPlayer.PlayerState.BackFrame)
-                    Root.Repaint();
             }
         }
 
@@ -67,50 +71,60 @@ namespace SpriteAnimatorEditor
                 GUIPro.Elements.Header("Select or create animation", 35);
                 return;
             }
-            else
+
             {
-                GUIPro.Elements.Header(m_animation.Path, 35);
+                //GUIPro.Elements.Header(m_animation.Path, 35);
+                GUIStyle style = new GUIStyle(SpriteAnimatorWindow.EditorResources.Header0);
+                style.alignment = TextAnchor.MiddleLeft;
+                style.padding = new RectOffset(40, 0, 0, 0);
+                GUILayout.Label(m_animation.Path.ToUpper(), style, GUILayout.ExpandHeight(false), GUILayout.ExpandWidth(true), GUILayout.Height(30));
+            }
 
-                GUILayout.Space(2);
+            GUILayout.Space(2);
 
-                GUIPro.Layout.Control(GUIPro.Layout.Direction.Horizontal, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
+            GUIPro.Layout.Control(GUIPro.Layout.Direction.Horizontal, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
+            {
+                GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
                 {
-                    GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
-                    {
                         //Player
                         GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawPlayer);
                         //Time Lines
                         GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, 200, SpriteAnimatorWindow.EditorResources.Background0, DrawTimeLine);
-                    });
-                    GUILayout.Space(2);
+                });
+                GUILayout.Space(2);
                     //Tools
                     GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, 300, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawSetting);
-                });
-                Update();
-            }
+            });
+            Update();
 
-            
-            if(Event.current.type == EventType.MouseUp && (m_currentDragIndexFrame != -1 || m_currentDragIndexPivot != -1))
+
+
+            if (Event.current.type == EventType.MouseUp && (m_currentDragIndexFrame != -1 || m_currentDragIndexPivot != -1))
             {
                 m_currentDragIndexFrame = -1;
                 m_currentDragIndexPivot = -1;
             }
 
-            if(Root.IsActiveWindows)
+            if (Root.IsActiveWindows)
                 DetectShortcutKey();
         }
 
         private void DetectShortcutKey()
         {
+            string[] contextData = GUI.GetNameOfFocusedControl().Split('.');
+            string context = contextData[0].ToLower();
+            string value = contextData.Length > 1 ? contextData[1] : "";
+
             if (Event.current.type == EventType.KeyDown)
             {
-                if(Event.current.keyCode == NextFrame)
+
+                if (Event.current.keyCode == KeyCode.RightArrow)
                 {
                     m_player.MoveNextFrame();
                     Event.current.Use();
                 }
 
-                if (Event.current.keyCode == BackFrame)
+                if (Event.current.keyCode == KeyCode.LeftArrow)
                 {
                     m_player.MoveBackFrame();
                     Event.current.Use();
@@ -131,97 +145,102 @@ namespace SpriteAnimatorEditor
 
         private void DrawSetting()
         {
-            m_settingScroll = GUILayout.BeginScrollView(m_settingScroll);
-
-            EditorGUI.BeginChangeCheck();
-
-            Root.Data.ShowAnimationOptions = GUIPro.Button.ContextFold(Root.Data.ShowAnimationOptions, "ANIMATION", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
-            if (Root.Data.ShowAnimationOptions)
+            using (GUILayout.ScrollViewScope scope = new GUILayout.ScrollViewScope(m_settingScroll))
             {
-                GUI.enabled = false;
-                GUIPro.Field.Draw("ID", m_animation.Id);
-                GUI.enabled = true;                
+                m_settingScroll = scope.scrollPosition;
 
-                m_animation.TimePerFrame = GUIPro.Field.Draw("Time Per Frame (ms)", m_animation.TimePerFrame);
-                EditorGUI.BeginChangeCheck();
-                SpriteAnimation.AnimationDirection dir = m_animation.Direction;
-                dir = GUIPro.Field.Draw("Direction:", m_animation.Direction);
-                if (EditorGUI.EndChangeCheck() && dir == SpriteAnimation.AnimationDirection.None)
-                    EditorUtility.DisplayDialog("error", "La animación debe tener un dirección", "ok");
-                else
-                    m_animation.Direction = dir;
 
-                m_animation.Type = GUIPro.Field.Draw("Type", m_animation.Type);
-            }
-
-            Root.Data.ShowFrameOptions = GUIPro.Button.ContextFold(Root.Data.ShowFrameOptions, "FRAMES", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
-            if (Root.Data.ShowFrameOptions)
-            {
-                if (m_animation.FrameCount > 0 && m_animation.FrameCount > m_player.FrameIndex)
+                Root.Data.ShowAnimationOptions = GUIPro.Button.ContextFold(Root.Data.ShowAnimationOptions, "ANIMATION", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON", () => Root.Snapshot("Show Animation Option"));
+                if (Root.Data.ShowAnimationOptions)
                 {
-                    m_animation.Frames[m_player.FrameIndex].Time = GUIPro.Field.Slider("Time", m_animation.Frames[m_player.FrameIndex].Time, 1f, 10);
-                    m_animation.Frames[m_player.FrameIndex].Sprite = (Sprite)GUIPro.Field.ObjectField("Sprite", m_animation.Frames[m_player.FrameIndex].Sprite, typeof(Sprite));
+                    GUI.enabled = false;
+                    GUIPro.Field.Draw("ID", m_animation.Id);
+                    GUI.enabled = true;
+
+                    m_animation.TimePerFrame = GUIPro.Field.Draw("Time Per Frame (ms)", m_animation.TimePerFrame, () => Root.Snapshot("Frame Time"));
+                    EditorGUI.BeginChangeCheck();
+                    SpriteAnimation.AnimationDirection dir = m_animation.Direction;
+                    dir = GUIPro.Field.Draw("Direction:", m_animation.Direction, () => Root.Snapshot("Frame Direction"));
+                    if (EditorGUI.EndChangeCheck() && dir == SpriteAnimation.AnimationDirection.None)
+                        EditorUtility.DisplayDialog("error", "La animación debe tener un dirección", "ok");
+                    else
+                        m_animation.Direction = dir;
+
+                    m_animation.Type = GUIPro.Field.Draw("Type", m_animation.Type, () => Root.Snapshot("Frame Type"));
                 }
 
-                Root.Data.ShowPivots = GUIPro.Field.Draw("Show Pivots", Root.Data.ShowPivots);
-
-                if (Root.Data.ShowPivots)
+                Root.Data.ShowFrameOptions = GUIPro.Button.ContextFold(Root.Data.ShowFrameOptions, "FRAMES", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON", () => Root.Snapshot("Show Frame Option"));
+                if (Root.Data.ShowFrameOptions)
                 {
-                    if (GUIPro.Button.Alternative("Add Pivot"))
-                        m_animation.AddPivot();
-
+                    if (m_animation.FrameCount > 0 && m_animation.FrameCount > m_player.FrameIndex)
                     {
+                        m_animation.Frames[m_player.FrameIndex].Time = GUIPro.Field.Slider("Time", m_animation.Frames[m_player.FrameIndex].Time, 1f, 10, () => Root.Snapshot("Frame Lenght"));
+                        m_animation.Frames[m_player.FrameIndex].Sprite = GUIPro.Field.Draw("Sprite", m_animation.Frames[m_player.FrameIndex].Sprite, () => Root.Snapshot("Frame Sprite"));
+                    }
+
+                    Root.Data.ShowPivots = GUIPro.Field.Draw("Show Pivots", Root.Data.ShowPivots);
+
+                    if (Root.Data.ShowPivots)
+                    {
+                        if (GUIPro.Button.Alternative("Add Pivot")) m_animation.AddPivot();
+
                         Texture2D icon = SpriteAnimatorWindow.EditorResources.GetIcon("Delete");
-                        for (int i = 0; i < m_animation.Pivots.Length; i++)
+
+                        if (m_animation.Pivots != null)
                         {
-                            m_animation.Pivots[i].Name = GUIPro.Field.Draw("Pivot " + i, m_animation.Pivots[i].Name);
-                            m_animation.Pivots[i].Color = GUIPro.Field.Draw("Pivot " + i, m_animation.Pivots[i].Color);
-
-                            Rect rectPivot = GUILayoutUtility.GetLastRect();
-                            rectPivot = new Rect(rectPivot.x + rectPivot.width - 230, rectPivot.y + 5, 20, 20);
-
-                            GUI.DrawTexture(rectPivot, icon);
-                            if (rectPivot.Contains(Event.current.mousePosition) &&
-                                Event.current.type == EventType.MouseDown && Root.IsActiveWindows)
+                            for (int i = 0; i < m_animation.Pivots.Length; i++)
                             {
-                                m_animation.RemovePivot(i);
-                                Event.current.Use();
-                                continue;
+                                if (m_animation.Pivots[i] == null)
+                                {
+                                    GUILayout.Label("Error");
+                                    continue;
+                                }
+
+                                GUIStyle style = new GUIStyle(SpriteAnimatorWindow.EditorResources.Background2);
+                                style.padding = new RectOffset(4, 4, 4, 4);
+
+                                using (GUILayout.VerticalScope vScope = new GUILayout.VerticalScope(style))
+                                {
+                                    GUILayout.Label("Pivot " + i, SpriteAnimatorWindow.EditorResources.Field);
+
+                                    m_animation.Pivots[i].Name = GUIPro.Field.Draw("Name", m_animation.Pivots[i].Name, () => Root.Snapshot("Privot Name"));
+                                    m_animation.Pivots[i].Color = GUIPro.Field.Draw("Color", m_animation.Pivots[i].Color, () => Root.Snapshot("Privot Color"));
+
+                                    if (GUILayout.Button("Remove", SpriteAnimatorWindow.EditorResources.ButtonNonMargin))
+                                    {
+                                        Root.Snapshot("RemovePivot");
+                                        m_animation.RemovePivot(i);
+                                        Event.current.Use();
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Root.Data.ShowRenderInfo = GUIPro.Button.ContextFold(Root.Data.ShowRenderInfo, "INFO", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
-            if (Root.Data.ShowRenderInfo)
-            {
-                GUI.enabled = false;
-                GUIPro.Field.Draw("Time", m_animation.Time);
-                GUIPro.Field.Draw("State", m_player.State);
-                GUIPro.Field.Draw("Frame", (m_player.FrameIndex + 1));
-                GUIPro.Field.Draw("Direcation", m_player.Direction);
+                Root.Data.ShowRenderInfo = GUIPro.Button.ContextFold(Root.Data.ShowRenderInfo, "INFO", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON", () => Root.Snapshot("Show Render Info"));
+                if (Root.Data.ShowRenderInfo)
+                {
+                    GUI.enabled = false;
+                    GUIPro.Field.Draw("Time", m_animation.Time);
+                    GUIPro.Field.Draw("State", m_player.State);
+                    GUIPro.Field.Draw("Frame", (m_player.FrameIndex + 1));
+                    GUIPro.Field.Draw("Direcation", m_player.Direction);
 
-                GUI.enabled = true;
-            }
-
-
-            Root.Data.ShowRenderOptions = GUIPro.Button.ContextFold(Root.Data.ShowRenderOptions, "RENDER", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON");
-            if (Root.Data.ShowRenderOptions)
-            {
-                Root.Data.ScaleSprite = GUIPro.Field.Slider("Render Scale", Root.Data.ScaleSprite, 1f, 100f);
-                Root.Data.ScalePivot = GUIPro.Field.Slider("Pivot Scale", Root.Data.ScalePivot, 1f, 100f);
-                Mathf.Clamp(Root.Data.ScaleSprite, .1f, 10);
-                Root.Data.PreviewBackgroundColor = GUIPro.Field.Draw("Background", Root.Data.PreviewBackgroundColor);
-                Root.Data.DrawSpriteZone = GUIPro.Field.Draw("Sprite Zone", Root.Data.DrawSpriteZone);
-            }
-            GUILayout.EndScrollView();
+                    GUI.enabled = true;
+                }
 
 
-            if (EditorGUI.EndChangeCheck() && (Event.current.type == EventType.KeyUp || Event.current.type == EventType.MouseUp)) 
-            {
-                Root.Snapshot("options");
-                Root.Save();
+                Root.Data.ShowRenderOptions = GUIPro.Button.ContextFold(Root.Data.ShowRenderOptions, "RENDER", "d_TimelineEditModeReplaceOFF", "d_TimelineEditModeReplaceON", () => Root.Snapshot("Show Render Setting"));
+                if (Root.Data.ShowRenderOptions)
+                {
+                    Root.Data.ScaleSprite = GUIPro.Field.Slider("Render Scale", Root.Data.ScaleSprite, 1f, 100f, () => Root.Snapshot("Render Scale"));
+                    Root.Data.ScalePivot = GUIPro.Field.Slider("Pivot Scale", Root.Data.ScalePivot, 1f, 100f, () => Root.Snapshot("Pivot Scale"));
+                    Mathf.Clamp(Root.Data.ScaleSprite, .1f, 10);
+                    Root.Data.PreviewBackgroundColor = GUIPro.Field.Draw("Background", Root.Data.PreviewBackgroundColor, () => Root.Snapshot("Render Color"));
+                    Root.Data.DrawSpriteZone = GUIPro.Field.Draw("Sprite Zone", Root.Data.DrawSpriteZone, () => Root.Snapshot("Pivot SpriteZone"));
+                }
+
             }
         }
 
@@ -289,7 +308,7 @@ namespace SpriteAnimatorEditor
 
         private void DrawTimeLine()
         {
-            GUILayout.BeginHorizontal("Timeline", SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.Height(20));
+            using(GUILayout.HorizontalScope scope = new GUILayout.HorizontalScope("Timeline", SpriteAnimatorWindow.EditorResources.Field, GUILayout.ExpandWidth(true), GUILayout.Height(20)))            
             {
                 if (GUILayout.Button("Order By name", SpriteAnimatorWindow.EditorResources.ButtonGreen, GUILayout.Height(20), GUILayout.Width(150)))
                 {
@@ -297,29 +316,27 @@ namespace SpriteAnimatorEditor
                     m_animation.SetFrames(m_animation.Frames.OrderBy(x => x.Sprite.name).ToList());
                 }
             }
-            GUILayout.EndHorizontal();
 
-            m_timelineScroll = GUILayout.BeginScrollView(m_timelineScroll, false, false, GUILayout.Height(170));
+            using (GUILayout.ScrollViewScope scrollScope = new GUILayout.ScrollViewScope(m_timelineScroll, false, false, GUILayout.Height(170)))
             {
-                GUILayout.BeginVertical(SpriteAnimatorWindow.EditorResources.TimeLine, GUILayout.ExpandWidth(true));
+                m_timelineScroll = scrollScope.scrollPosition;
+                using(GUILayout.VerticalScope vScope = new GUILayout.VerticalScope(SpriteAnimatorWindow.EditorResources.TimeLine, GUILayout.ExpandWidth(true)))                 
                 {
                     GUILayout.FlexibleSpace();
-                    GUILayout.BeginHorizontal();
-                    {                        
+                    using (GUILayout.HorizontalScope hScope = new GUILayout.HorizontalScope())
+                    {
                         for (int i = 0; i < m_animation.FrameCount; i++)
                         {
+                            GUI.SetNextControlName("TimeLineSprite" + i);
                             GUILayout.Box("", GUIStyle.none, GUILayout.Width(80 * m_animation.Frames[i].Time), GUILayout.Height(100));
                             Rect rectElement = GUILayoutUtility.GetLastRect();
                             GUILayout.Space(10);
-                            DrawTimeLineElement(m_animation.Frames[i], rectElement, m_player.FrameIndex == i, i);                           
+                            DrawTimeLineElement(m_animation.Frames[i], rectElement, m_player.FrameIndex == i, i);
                         }
                     }
-                    GUILayout.EndHorizontal();
                     GUILayout.FlexibleSpace();
                 }
-                GUILayout.EndVertical();
             }
-            GUILayout.EndScrollView();
 
             Rect dragAreaReact = GUILayoutUtility.GetLastRect();
 
@@ -399,9 +416,12 @@ namespace SpriteAnimatorEditor
                     if (dropZone.Contains(Event.current.mousePosition))
                     {
                         if (m_currentDragIndexFrame != index)
+                        {
+                            Root.Snapshot("MoveFrame");
                             TimeLineChangeIndex(m_currentDragIndexFrame, index);
+                        }
                         m_currentDragIndexFrame = -1;
-                        Event.current.Use();
+                        Event.current.Use();                        
                     }
                 }
             }
@@ -426,19 +446,24 @@ namespace SpriteAnimatorEditor
             {
                 if (Event.current.button == 0)
                 {
+                    Root.Snapshot("Select Frame");                    
                     m_player.GoToFrame(index);
+                    GUI.FocusControl("TimeLineSprite." + index);
                     Event.current.Use();
                 }
                 else if (Event.current.button == 1)
                 {
-                    GenericMenu menu = new GenericMenu();
-                    menu.AddItem(new GUIContent("Remove"), false, () =>
+                    Root.Snapshot("Select Frame");
+                    m_player.GoToFrame(index);
+                    GUI.FocusControl("TimeLineSprite." + index);
+                    Root.MenuContext.Prepare();
+                    Root.MenuContext.AddItem("Delete", () =>
                     {
+                        Root.Snapshot("RemoveFrame");
                         m_animation.RemoveFrame(index);
-                        Root.Repaint();
                     });
-
-                    menu.ShowAsContext();
+                    Root.MenuContext.ShowAsContext();
+                    Event.current.Use();
                 }                
             }
 
@@ -503,7 +528,6 @@ namespace SpriteAnimatorEditor
 
         internal void SetAnimation(SpriteAnimation spriteAnimation)
         {
-            Root.Snapshot("Set Animation");
             m_animation = spriteAnimation;
             m_player = new SpriteAnimatorPlayer(m_animation);            
             m_player.MoveBackFrame();
@@ -539,7 +563,7 @@ namespace SpriteAnimatorEditor
 
        
 
-        private static Rect DrawSpriteRenderInternal(Rect rect, Sprite sprite, float scale, bool spriteZone = true)
+        public static Rect DrawSpriteRenderInternal(Rect rect, Sprite sprite, float scale, bool spriteZone = true)
         {
             if (sprite == null)
             {
@@ -582,6 +606,7 @@ namespace SpriteAnimatorEditor
                     if (data.Pivots.Count - 1 < i)
                         break;
 
+                    GUI.SetNextControlName("FramePivot." + i);
                     data.Pivots[i] = DrawPivotViewPlayer(i, data.Pivots[i], m_animation.Pivots[i].Name, rect);
                 }
             }
@@ -611,13 +636,18 @@ namespace SpriteAnimatorEditor
 
             if (Event.current.type == EventType.MouseDown && pivotRect.Contains(Event.current.mousePosition) && Root.IsActiveWindows)
             {
+                GUI.FocusControl("FramePivot" + index);
+                m_pivotOriginalPos = point;
                 m_currentDragIndexPivot = index;
                 Event.current.Use();
             }
             else if (Event.current.type == EventType.MouseUp && Root.IsActiveWindows && m_currentDragIndexPivot != -1)
             {
+                Vector2 newPos = m_animation.Frames[m_player.FrameIndex].Pivots[index];
+                m_animation.Frames[m_player.FrameIndex].Pivots[index] = m_pivotOriginalPos;
+                if (newPos != m_pivotOriginalPos) Root.Snapshot("MovePivot");
+                m_animation.Frames[m_player.FrameIndex].Pivots[index] = newPos;
                 m_currentDragIndexPivot = -1;
-                Root.Snapshot("MovePivot");
                 Event.current.Use();
             }
             else if (m_currentDragIndexPivot == index && Event.current.type == EventType.MouseDrag && Root.IsActiveWindows)
@@ -664,6 +694,50 @@ namespace SpriteAnimatorEditor
                     }
                     break;
             }
+        }
+
+        internal byte[] Serialize()
+        {
+
+            using (MemoryStream mem = new MemoryStream())
+            {
+                using (BinaryWriter writer = new BinaryWriter(mem))
+                {
+                    writer.Write(m_timelineScroll.x);
+                    writer.Write(m_timelineScroll.y);
+                    writer.Write(m_settingScroll.x);
+                    writer.Write(m_timelineScroll.y);
+                    writer.Write(m_player == null ? 0 : m_player.FrameIndex);
+                }
+
+                return mem.ToArray();
+            }
+        }
+
+        internal void Deserialize(byte[] bytes)
+        {
+            using (MemoryStream mem = new MemoryStream(bytes))
+            {
+                using (BinaryReader reader = new BinaryReader(mem))
+                {
+                    m_timelineScroll.x = reader.ReadSingle();
+                    m_timelineScroll.y = reader.ReadSingle();
+                    m_settingScroll.x = reader.ReadSingle();
+                    m_settingScroll.y = reader.ReadSingle();
+                    if (m_player != null)
+                        m_player.GoToFrame(reader.ReadInt32());
+                }
+            }
+        }
+
+        public void OnBeforeSerialize()
+        {
+            m_serializeData = Serialize();
+        }
+
+        public void OnAfterDeserialize()
+        {
+            if (m_serializeData != null)  Deserialize(m_serializeData);
         }
     }
 }

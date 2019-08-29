@@ -6,19 +6,25 @@ using UnityEngine;
 namespace SpriteAnimatorRuntime
 {
     [Serializable]
-    public class SpriteAnimatorData : ScriptableObject
+    public class SpriteAnimatorData : ScriptableObject, ISerializationCallbackReceiver
     {
         public static SpriteAnimatorData Instance { get; private set; }
-
-        [HideInInspector]
+        
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public byte[] TreeViewData = new byte[0];
-        [HideInInspector]
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        public byte[] EditorData = new byte[0];
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        public bool ShowAnimationTree = true;
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        public bool ShowAnimationSetting = true;
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public float ScaleSprite = 1;
-        [HideInInspector]
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public float ScalePivot = 1;
-        [HideInInspector]
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public Color PreviewBackgroundColor = Color.blue;
-        [HideInInspector]
+        [HideInInspector, System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public bool DrawSpriteZone = false;
 
         
@@ -86,9 +92,23 @@ namespace SpriteAnimatorRuntime
             Instance = this;
         }
 
-        public void Save()
+        public void OnBeforeSerialize()
         {
             m_lastSave = DateTime.Now.ToString();
+        }
+
+        public void OnAfterDeserialize()
+        {
+
+        }
+
+        public void CopyAnimation(int originId, int destineId)
+        {
+            SpriteAnimation animOr = GetAnimation(originId);
+            SpriteAnimation animDs = GetAnimation(destineId);
+            if (animOr == null || animDs == null) return;
+
+            animDs.Copy(animOr);
         }
     }    
 }

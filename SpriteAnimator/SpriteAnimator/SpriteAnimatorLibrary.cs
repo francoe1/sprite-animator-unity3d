@@ -1,20 +1,36 @@
 ﻿using SpriteAnimatorRuntime;
+using System;
 using System.Timers;
 using UnityEditor;
 using UnityEngine;
 
 namespace SpriteAnimatorEditor
 {
+    [Serializable]
     internal class SpriteAnimatorLibrary
     {
-        private SpriteAnimatorWindow Root { get; set; }
-        private AnimationPreview[] m_preview { get; set; }
-        private bool[] m_previewFilter { get; set; }
-        private int m_previewSize { get; set; }
-        private int m_previewMargin { get; set; }
-        private Vector2 m_scroll { get; set; }
-        private int m_scrollHeightFix  { get; set; }
+        private SpriteAnimatorWindow Root = null;
+        [SerializeField]
+        private AnimationPreview[] m_preview = null;
+        [SerializeField]
+        private bool[] m_previewFilter = null;
+        [SerializeField]
+        private int m_previewSize;
+        [SerializeField]
+        private int m_previewMargin;
+        [SerializeField]
+        private Vector2 m_scroll ;
+        [SerializeField]
+        private int m_scrollHeightFix ;
+        [SerializeField]
         private string m_searchText = "";
+        [SerializeField]
+        private Rect m_rectPreviewZone;
+        [SerializeField]
+        private Rect m_searchRect;
+
+        private SpriteAnimation[] m_cacheAnimations;
+       
 
         public SpriteAnimatorLibrary(SpriteAnimatorWindow spriteAnimatorWindow)
         {
@@ -22,62 +38,64 @@ namespace SpriteAnimatorEditor
             m_previewMargin = 5;
             Root = spriteAnimatorWindow;
             m_preview = new AnimationPreview[0];
-            Timer timer = new Timer();
-            timer.Interval = 10;
-            timer.Elapsed += (o, e) => Update();
-            timer.Start();
         }
 
         private void Update()
         {
-            bool isRepain = false;
-
+            if (Event.current.type != EventType.Layout) return;
             for (int i = 0; i < m_preview.Length; i++)
             {
                 if (m_preview[i].Player.State == SpriteAnimatorPlayer.PlayerState.Finish)
                     m_preview[i].Player.Reset();
-
                 m_preview[i].Player.Update();
-                if (!isRepain && (m_preview[i].Player.State == SpriteAnimatorPlayer.PlayerState.NextFrame ||
-                    m_preview[i].Player.State == SpriteAnimatorPlayer.PlayerState.BackFrame))
-                {
-                    Root.Repaint();
-                    isRepain = true;
-                }
             }
         }
 
         public void SetAnimation(SpriteAnimation[] animations)
         {
-            m_preview = new AnimationPreview[animations.Length];
-            m_previewFilter = new bool[animations.Length];
+            m_cacheAnimations = animations;
+        }
 
-            for (int i = 0; i < animations.Length; i++)
+        private void RefreshAnimationData()
+        {
+            m_preview = new AnimationPreview[m_cacheAnimations.Length];
+            m_previewFilter = new bool[m_cacheAnimations.Length];
+
+            for (int i = 0; i < m_cacheAnimations.Length; i++)
             {
-                m_preview[i] = new AnimationPreview(animations[i]);
+                m_preview[i] = new AnimationPreview(m_cacheAnimations[i]);
                 m_previewFilter[i] = true;
             }
 
-            m_scrollHeightFix = 0;            
+            m_cacheAnimations = null;
+            m_scrollHeightFix = 0;
         }
-
 
         public void Draw()
         {
-            GUIPro.Elements.Header("Sprite Animator Library", 35);
+            GUIPro.Elements.Header("Sprite Animator Library", 30);
+
+            if (Event.current.type == EventType.Layout && m_cacheAnimations != null)
+            {
+                RefreshAnimationData();
+            }
+
             if (m_preview.Length == 0)
             {
                 return;
             }
 
+            Update();
+
             GUILayout.Label("", GUILayout.ExpandWidth(true), GUILayout.Height(20));
-            Rect searchRect = GUILayoutUtility.GetLastRect();
+            m_searchRect = GUILayoutUtility.GetLastRect();
                         
             EditorGUI.BeginChangeCheck();
-            m_searchText = GUI.TextField(searchRect, m_searchText, SpriteAnimatorWindow.EditorResources.LabelSearch);
+            m_searchText = GUI.TextField(m_searchRect, m_searchText, SpriteAnimatorWindow.EditorResources.LabelSearch);
 
-            GUI.DrawTexture(new Rect(searchRect.x + 5, searchRect.y + 2, 15, 15),
-               SpriteAnimatorWindow.EditorResources.GetIcon("Search"));
+            GUI.DrawTexture(new Rect(m_searchRect.x + 5, m_searchRect.y + 2, 15, 15),
+            SpriteAnimatorWindow.EditorResources.GetIcon("Search"));
+
             if (EditorGUI.EndChangeCheck())
             {
                 for(int i = 0; i < m_preview.Length; i++)
@@ -98,9 +116,9 @@ namespace SpriteAnimatorEditor
             GUILayout.BeginVertical();
             {
                 GUILayout.Label("", GUILayout.Height(0), GUILayout.ExpandWidth(true));
-                Rect rect = GUILayoutUtility.GetLastRect();
-                rect.y -= 2;
-                int cols = (int)rect.width / m_previewSize;
+                m_rectPreviewZone = GUILayoutUtility.GetLastRect();
+                m_rectPreviewZone.y -= 2;
+                int cols = (int)m_rectPreviewZone.width / m_previewSize;
                 int x = 0;
                 int y = 0;
 
@@ -109,8 +127,8 @@ namespace SpriteAnimatorEditor
                     if (!m_previewFilter[i])
                         continue;
 
-                    Rect itemRect = new Rect(rect.x + ((m_previewSize + m_previewMargin) * x),
-                    rect.y + ((m_previewSize + m_previewMargin) * y) + m_previewMargin,
+                    Rect itemRect = new Rect(m_rectPreviewZone.x + ((m_previewSize + m_previewMargin) * x),
+                    m_rectPreviewZone.y + ((m_previewSize + m_previewMargin) * y) + m_previewMargin,
                     m_previewSize,
                     m_previewSize);
 
@@ -136,6 +154,7 @@ namespace SpriteAnimatorEditor
                 rect.Contains(Event.current.mousePosition))
             {
                 Root.SelectElementForID(player.Animation.Id);
+                Event.current.Use();
             }
 
 
@@ -150,38 +169,20 @@ namespace SpriteAnimatorEditor
             }
             else
             {
-                Rect c = aSprite.rect;
-
-                if (Event.current.type == EventType.Repaint)
+                GUIPro.Layout.ControlCenter(() =>
                 {
-                    var tex = aSprite.texture;
-                    c.xMin /= tex.width;
-                    c.xMax /= tex.width;
-                    c.yMin /= tex.height;
-                    c.yMax /= tex.height;
-
-                    if (rect.width > rect.height)
-                        rect.width = rect.height;
-                    else
-                        rect.height = rect.width;
-
-                    rect.width = Mathf.Clamp(rect.width, 64, 150);
-                    rect.height = Mathf.Clamp(rect.height, 64, 150);
-
-                    float y = 20 + (originalRect.height - rect.height) / 2;
-                    float x = 20 + (originalRect.width - rect.width) / 2;
-
-                    Rect spriteRect = new Rect(rect.x + x, rect.y + y, rect.width - 40, rect.height - 40);
-                    EditorGUI.DrawRect(spriteRect, new Color(0, 0, 0, .05f));
-                    GUI.DrawTextureWithTexCoords(spriteRect, tex, c);
-                }
+                    Rect spriteRect = rect;
+                    spriteRect.height -= 40;
+                    spriteRect.y += 40;
+                    SpriteAnimatorControl.DrawSpriteRenderInternal(spriteRect, aSprite, .8f, false);
+                });
             }
 
-            GUI.Box(new Rect(originalRect.x, originalRect.y, originalRect.width, 20), player.Animation.Name, SpriteAnimatorWindow.EditorResources.Background3);
+            GUI.Box(new Rect(originalRect.x, originalRect.y, originalRect.width, 40), player.Animation.Name, SpriteAnimatorWindow.EditorResources.Background3);
 
             if(originalRect.Contains(Event.current.mousePosition))
             {
-                Rect infoRect = new Rect(originalRect.x, originalRect.y + 20, originalRect.width, originalRect.height - 20);
+                Rect infoRect = new Rect(originalRect.x, originalRect.y + 40, originalRect.width, originalRect.height - 40);
                 GUI.Box(infoRect
                     , "Frames:" + player.Animation.FrameCount + "\n" + 
                       "Time:" + player.Animation.Time + "\n" + 
@@ -195,10 +196,10 @@ namespace SpriteAnimatorEditor
             }
         }
 
-
+        [Serializable]
         public class AnimationPreview
         {
-            public SpriteAnimatorPlayer Player { get; set; }
+            public SpriteAnimatorPlayer Player = null;
 
             public AnimationPreview(SpriteAnimation animation)
             {

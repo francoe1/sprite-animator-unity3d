@@ -139,12 +139,12 @@ namespace SpriteAnimatorEditor
 
                 Colors = new Color[]
                 {
-                CreateColor(68, 68, 68), //0
-                CreateColor(51, 51, 51), //1
-                CreateColor(77, 124, 255), //2
-                CreateColor(20, 20, 20), //3
-                CreateColor(42, 219, 138), //4
-                CreateColor(41, 41, 41),//5
+                CreateColor(68, 68, 68), //0 Grey 1
+                CreateColor(51, 51, 51), //1 Grey 2
+                CreateColor(77, 124, 255), //2 Cyan
+                CreateColor(41, 41, 41), //3 Color Alternativo 1
+                CreateColor(82, 225, 182), //4 //Color Alternativo 2
+                CreateColor(41, 41, 41),//5 //Color Headers y Background 2
                 CreateColor(120, 120, 120), //6
                 CreateColor(178, 151, 9), //7
                 CreateColor(178, 157, 9), //8

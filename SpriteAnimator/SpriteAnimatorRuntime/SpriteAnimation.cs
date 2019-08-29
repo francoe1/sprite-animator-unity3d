@@ -85,45 +85,45 @@ namespace SpriteAnimatorRuntime
 
         public int AddFrame(Sprite sprite)
         {
-            if (Application.isPlaying)
-                throw new Exception("AddFrame is not available in runtime");
-
             m_frames.Add(new FrameInfo (m_pivots.Count) { Sprite = sprite });
             return m_frames.Count - 1;
         }
 
         public void InsertFrame(int index, Sprite sprite)
         {
-            if (Application.isPlaying)
-                throw new Exception("Insert is not available in runtime");
-
             m_frames.Insert(index, new FrameInfo(m_pivots.Count) { Sprite = sprite });
         }
 
         public void RemoveFrame(int index)
         {
-            if (Application.isPlaying)
-                throw new Exception("RemoveAt is not available in runtime");
             m_frames.RemoveAt(index);
         }
 
         public void SetFrames(IList<FrameInfo> frames)
         {
-            if (Application.isPlaying)
-                throw new Exception("SetFrames is not available in runtime");
-
             m_frames.Clear();
             m_frames.AddRange(frames);
         }
 
         public void AddPivot()
         {
-            if (Application.isPlaying)
-                throw new Exception("AddPivot is not available in runtime");
-
-            m_pivots.Add(new Pivot(m_pivots.Count));
+            Pivot pivot = new Pivot(m_pivots.Count);
+            pivot.Name = "Pivot" + m_pivots.Count;
+            pivot.Color = Color.blue;
+            m_pivots.Add(pivot);
             for(int i = 0; i < m_frames.Count; i++)
                 m_frames[i].Pivots.Add(Vector2.zero);
+        }
+
+        internal void Copy(SpriteAnimation animOr)
+        {
+            m_frames = animOr.m_frames;
+            m_path = animOr.m_path;
+            m_pivots = animOr.m_pivots;
+            m_timePerSecond = animOr.m_timePerSecond;
+            Direction = animOr.Direction;
+            Type = animOr.Type;
+            Name = animOr.Name;            
         }
 
         public void RemovePivot(int index)
