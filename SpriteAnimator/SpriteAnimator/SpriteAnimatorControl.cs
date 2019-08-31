@@ -84,16 +84,18 @@ namespace SpriteAnimatorEditor
 
             GUIPro.Layout.Control(GUIPro.Layout.Direction.Horizontal, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
             {
+                GUI.SetNextControlName("Control");
                 GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background1, () =>
                 {
-                        //Player
-                        GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawPlayer);
-                        //Time Lines
-                        GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, 200, SpriteAnimatorWindow.EditorResources.Background0, DrawTimeLine);
+                    //Player
+                    GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawPlayer);
+                    //Time Lines
+                    GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, 200, SpriteAnimatorWindow.EditorResources.Background0, DrawTimeLine);
                 });
                 GUILayout.Space(2);
-                    //Tools
-                    GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, 300, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawSetting);
+                //Tools
+                GUI.SetNextControlName("ControlSetting");
+                GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, 300, -1, SpriteAnimatorWindow.EditorResources.Background0, DrawSetting);
             });
             Update();
 
@@ -467,13 +469,15 @@ namespace SpriteAnimatorEditor
                 }                
             }
 
-            /*
+            if (SpriteAnimatorWindow.ActiveContext != SpriteAnimatorWindow.Context.Control || !Root.IsActiveWindows) return;
+
             if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Delete)
             {
+                Root.Snapshot("RemoveFrame");
                 Root.ShowNotification(new GUIContent($"Remove frame {index}"));
                 m_animation.RemoveFrame(index);
                 Event.current.Use();
-            }*/
+            }
 
         }
 

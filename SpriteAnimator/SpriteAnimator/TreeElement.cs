@@ -230,6 +230,11 @@ namespace SpriteAnimatorEditor
             return Elements[index];
         }
 
+        public override string ToString()
+        {
+            return $"(TreeElement {Index}:[{ID}]{Name})";
+        }
+
         public override bool Equals(object element)
         {
             if (element == null) return false;

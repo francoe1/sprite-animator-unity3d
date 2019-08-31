@@ -64,7 +64,8 @@ namespace SpriteAnimatorRuntime
         {
             path = "Root/" + path;
 
-            SpriteAnimation anim = GetAnimation(path);
+            //SpriteAnimation anim = GetAnimation(path);
+            SpriteAnimation anim = Data.GetAnimation(path);
             if (anim != null && Player.Animation != anim)
             {
                 Player.PlayAnimation(anim);

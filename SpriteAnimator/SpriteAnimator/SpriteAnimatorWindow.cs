@@ -83,8 +83,16 @@ namespace SpriteAnimatorEditor
         private TreeElement m_treeViewElementRename { get; set; }
         private Rect m_rectElementRename { get; set; }
         private string m_tempRenameValue = "";
-        private Rect m_rectTreeContext { get; set; }
         private bool InRename { get { return m_treeViewElementRename != null; } }
+
+        private Rect m_rectTreeContext { get; set; }
+        private Rect m_rectControlContext { get; set; }
+
+        public enum Context
+        {
+            Tree,
+            Control,
+        }
 
 
         public static bool AvailableSave => !EditorApplication.isPlayingOrWillChangePlaymode;
@@ -94,12 +102,12 @@ namespace SpriteAnimatorEditor
         private SpriteAnimatorControl m_control = null;
         [SerializeField]
         private SpriteAnimatorLibrary m_library = null;
-        private bool m_treeViewFocused;
 
         internal SpriteAnimatorData Data { get { return m_data; } }
         internal bool IsActiveWindows { get { return focusedWindow == this; } }
         internal ContextMenu MenuContext { get; private set; }
         internal static GUIResources EditorResources { get; private set; }
+        public static Context ActiveContext { get; private set; }
         
         private static int m_lastMilliseconds { set; get; }
 
@@ -185,6 +193,7 @@ namespace SpriteAnimatorEditor
             {
                 if (m_data.ShowAnimationTree)
                 {
+                    GUI.SetNextControlName("TreeView");
                     GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, 200, -1, EditorResources.Background1, () =>
                     {
 
@@ -195,18 +204,22 @@ namespace SpriteAnimatorEditor
                             TreeViewSelectElement(null);
                             Event.current.Use();
                         }
-                        GUI.SetNextControlName("TreeView");
+                        
                         DrawTreeView();
                     });
 
                     if (Event.current.type == EventType.Repaint)
                         m_rectTreeContext = GUILayoutUtility.GetLastRect();
+                    
                     GUILayout.Space(2);
                 }
-
-
+                
+                
                 GUIPro.Layout.Control(GUIPro.Layout.Direction.Vertical, -1, -1, EditorResources.Background5, DrawControl);
-                Rect hiddenTreeButton = GUILayoutUtility.GetLastRect();
+                if (Event.current.type == EventType.Repaint)
+                    m_rectControlContext = GUILayoutUtility.GetLastRect();
+
+                Rect hiddenTreeButton = m_rectControlContext;
                 hiddenTreeButton.width = 20;
                 hiddenTreeButton.height = 20;
                 hiddenTreeButton.y += 5;
@@ -220,6 +233,24 @@ namespace SpriteAnimatorEditor
                     Event.current.Use();
                 }
             });
+
+            if (m_rectTreeContext.Contains(Event.current.mousePosition) && Event.current.type == EventType.MouseDown) ActiveContext = Context.Tree;
+            if (m_rectControlContext.Contains(Event.current.mousePosition) && Event.current.type == EventType.MouseDown) ActiveContext = Context.Control;
+
+            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Tab)
+            {
+                if (ActiveContext == Context.Tree)
+                {
+                    GUI.FocusControl("Control");
+                    ActiveContext = Context.Control;
+                }
+                else
+                {
+                    GUI.FocusControl("TreeView");
+                    ActiveContext = Context.Tree;
+                }
+                Event.current.Use();
+            }            
         }
 
         private void Update()
@@ -394,13 +425,8 @@ namespace SpriteAnimatorEditor
 
         private void DrawTreeView()
         {
-            using (GUILayout.ScrollViewScope scope = new GUILayout.ScrollViewScope(m_treeScroll, false, false))
             {
-                m_treeScroll = scope.scrollPosition;
-
                 m_treeView.Draw(0);
-
-
                 if (Event.current.type == EventType.MouseDown)
                 {
                     if (Event.current.button == 1 && m_rectTreeContext.Contains(Event.current.mousePosition))
@@ -415,17 +441,9 @@ namespace SpriteAnimatorEditor
                         Event.current.Use();
                     }
 
-                    if (m_rectTreeContext.Contains(Event.current.mousePosition))
-                    {
-                        m_treeViewFocused = true;
-                    }
-                    else
-                    {
-                        m_treeViewFocused = false;
-                    }
                 }
 
-                if (Event.current.type == EventType.KeyDown && m_treeViewFocused)
+                if (Event.current.type == EventType.KeyDown && ActiveContext == Context.Tree && IsActiveWindows)
                 {
                     if (m_treeView.SelectedElement != null)
                     {
@@ -504,13 +522,16 @@ namespace SpriteAnimatorEditor
             rect.x = 0;
             rect.width = 200;
             int childSpace = 10;
-                       
+
+            bool selected = element.ID == m_treeView.SelectedElementId;
+
+
             Rect rectLabel = new Rect(rect.x + childSpace * element.Depth, rect.y, rect.width - childSpace * element.Depth, rect.height);
             Rect rectIcon = new Rect(5 + rect.x + childSpace * element.Depth, rect.y + 12, 12, 12);
             
             if (element.Type == TreeElement.ElementType.Folder)
             {
-                GUI.Label(rectLabel, $"({element.Index}){element.Name} [{element.Elements.Count}]",element.ID == m_treeView.SelectedElementId ? EditorResources.TreeViewFolderSelected : EditorResources.TreeViewFolder);
+                GUI.Label(rectLabel, $"{element.Name} [{element.Elements.Count}]", selected ? EditorResources.TreeViewFolderSelected : EditorResources.TreeViewFolder);
                 GUI.DrawTexture(rectIcon, EditorResources.GetIcon("Folder" + (element.Visible ? "Open" : "Close")));
                 EditorGUI.DrawRect(new Rect(rectLabel.x, rectLabel.y + rect.height, rectLabel.width, 1), EditorResources.Colors[4]);
                 EditorGUI.DrawRect(new Rect(rectLabel.x, rectLabel.y, 1, m_treeView.ElementHeight), EditorResources.Colors[4]);
@@ -519,7 +540,7 @@ namespace SpriteAnimatorEditor
             if (element.Type == TreeElement.ElementType.Animation)
             {
                 rectLabel = new Rect(rect.x + (childSpace * element.Depth), rect.y, rect.width - (childSpace * element.Depth), rect.height);
-                GUI.Label(rectLabel, $"({ element.Index})"+element.Name, element.ID == m_treeView.SelectedElementId ? EditorResources.TreeViewAnimationSelected : EditorResources.TreeViewAnimation);
+                GUI.Label(rectLabel, element.Name, selected ? EditorResources.TreeViewAnimationSelected : EditorResources.TreeViewAnimation);
                 EditorGUI.DrawRect(new Rect(rectLabel.x, rectLabel.y, 1, m_treeView.ElementHeight), EditorResources.Colors[4]);
             }
 
@@ -530,16 +551,16 @@ namespace SpriteAnimatorEditor
             bottomEdgeRect.height = 10;
             bottomEdgeRect.y += rectLabel.height - 10;
 
-            if (m_treeView.SelectedElement != null && m_treeDragElement)
+            if (m_treeDragElement)
             {
-                if (m_treeView.SelectedElement.ID == element.ID || rectLabel.Contains(Event.current.mousePosition))
+                if (selected || rectLabel.Contains(Event.current.mousePosition))
                 {
                     Color selectColor = Color.white;
                     selectColor.a = .5f;
                     EditorGUI.DrawRect(rectLabel, selectColor);
                 }
 
-                if (m_treeView.SelectedElement.ID != element.ID)
+                if (selected)
                 {
                     if (topEdgeRect.Contains(Event.current.mousePosition))
                     {
@@ -562,7 +583,7 @@ namespace SpriteAnimatorEditor
                 }
             }
 
-            if (!IsActiveWindows) return;
+            if (!IsActiveWindows || ActiveContext != Context.Tree) return;
 
             switch (Event.current.type)
             {
@@ -636,7 +657,7 @@ namespace SpriteAnimatorEditor
                     break;
 
                 case EventType.KeyDown:
-                    if (element.ID == m_treeView.SelectedElementId)
+                    if (selected)
                     {
                         if (Event.current.keyCode == KeyCode.F2)
                         {
@@ -645,6 +666,9 @@ namespace SpriteAnimatorEditor
                         }
                         else if (Event.current.keyCode == KeyCode.Delete)
                         {
+                            TreeElement newSelection = m_treeView.GetNext(element);
+                            m_treeView.SelectElement(newSelection == null ? m_treeView.GetBack(element) : newSelection);
+
                             if (element.Type == TreeElement.ElementType.Animation)
                             {
                                 Event.current.Use();
@@ -655,6 +679,8 @@ namespace SpriteAnimatorEditor
                                 Event.current.Use();
                                 DeleteFolder(element);
                             }
+
+                            Focus();
                         }
                     }
                     break;
@@ -790,6 +816,7 @@ namespace SpriteAnimatorEditor
 
         private void RenameElement(TreeElement element, Rect rect)
         {
+            rect.y += m_treeView.ElementHeight;
             m_tempRenameValue = element.Name;
             m_treeViewElementRename = element;
             if (element.Type == TreeElement.ElementType.Folder)
